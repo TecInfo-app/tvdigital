@@ -229,6 +229,17 @@ async function startServer() {
 
   app.use(express.json());
 
+  // CORS middleware to allow cross-origin requests from GitHub Pages or other domains
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // API Route: Scraper and Converter of regular websites to RSS-like JSON
   app.get("/api/scrape-rss", async (req, res) => {
     const targetUrl = req.query.url as string;

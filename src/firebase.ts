@@ -81,3 +81,25 @@ export function cleanUndefined<T>(obj: T): T {
   }
   return obj;
 }
+
+/**
+ * Resolves the API URL dynamically depending on the deployment environment.
+ * If running on a static host like GitHub Pages, it routes requests to the running Cloud Run backend.
+ */
+export function getApiUrl(path: string): string {
+  if (typeof window !== 'undefined') {
+    const isStaticHost = window.location.hostname.includes('github.io') || 
+                         window.location.hostname.includes('vercel.app') || 
+                         window.location.hostname.includes('netlify.app');
+                         
+    if (isStaticHost) {
+      // The Cloud Run live preview URL acting as the API backend
+      const fallbackBackend = 'https://ais-pre-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
+      const savedBackend = localStorage.getItem('backend_api_url') || fallbackBackend;
+      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      return `${savedBackend}${cleanPath}`;
+    }
+  }
+  return path;
+}
+

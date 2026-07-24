@@ -13,7 +13,7 @@ import SchedulesView from './components/SchedulesView';
 import AnalyticsView from './components/AnalyticsView';
 import LivePlayerModal from './components/LivePlayerModal';
 import Auth from './components/Auth';
-import { Loader2, Tv } from 'lucide-react';
+import { Loader2, Tv, Settings, X } from 'lucide-react';
 
 import { MediaItem, Player, Playlist, LogEntry } from './types';
 import { 
@@ -49,6 +49,26 @@ export default function App() {
   // Simulator Modal states
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [simulatorPlayer, setSimulatorPlayer] = useState<string>('NYC-TIME-SQUARE-01');
+
+  // Settings states
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [backendUrl, setBackendUrl] = useState(() => {
+    return localStorage.getItem('backend_api_url') || 'https://ais-pre-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
+  });
+
+  const handleSaveSettings = (newUrl: string) => {
+    let cleanUrl = newUrl.trim();
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+    localStorage.setItem('backend_api_url', cleanUrl);
+    setBackendUrl(cleanUrl);
+    showToast('Configurações salvas. Atualizando aplicativo...');
+    setIsSettingsOpen(false);
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
 
   // Verify connection to Firestore on initial boot
   useEffect(() => {
@@ -496,7 +516,7 @@ export default function App() {
             document.getElementById('quick-upload-section')?.scrollIntoView({ behavior: 'smooth' });
           }, 100);
         }}
-        onSettingsClick={() => showToast('Painel de Configurações está disponível na versão Enterprise.')}
+        onSettingsClick={() => setIsSettingsOpen(true)}
         onSupportClick={() => showToast('Abrindo chat de suporte com a engenharia...')}
         user={user}
         onLogout={handleLogout}
@@ -536,6 +556,67 @@ export default function App() {
         playerName={simulatorPlayer}
         initialIndex={currentPlayingIndex}
       />
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="w-full max-w-lg bg-[#140e30]/95 border border-white/10 rounded-[28px] p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setIsSettingsOpen(false)}
+              className="absolute top-5 right-5 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-lg font-bold text-white mb-2 font-geist flex items-center gap-2">
+              <Settings className="w-5 h-5 text-indigo-400" />
+              <span>Configurações do Sistema</span>
+            </h3>
+            <p className="text-xs text-white/60 mb-6">
+              Gerencie a integração do back-end para as funcionalidades dinâmicas em produção.
+            </p>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const urlVal = formData.get('backendUrl') as string;
+              handleSaveSettings(urlVal);
+            }} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-2 font-geist">
+                  URL da API de Integração (Conversor RSS/Sites)
+                </label>
+                <input 
+                  type="text"
+                  name="backendUrl"
+                  defaultValue={backendUrl}
+                  required
+                  placeholder="https://exemplo-api.fly.dev"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                />
+                <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
+                  Necessário para buscar conteúdos de sites e convertê-los em slides (Web Scraping). Por padrão, utiliza o servidor do Google Cloud Run temporário.
+                </p>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white/80 hover:bg-white/5 transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-xs font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  Salvar Configurações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

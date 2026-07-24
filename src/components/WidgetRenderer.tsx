@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Wifi, AlertCircle, RefreshCw, Radio, Sparkles } from 'lucide-react';
+import { getApiUrl } from '../firebase';
 
 interface WidgetRendererProps {
   url: string;
@@ -86,7 +87,7 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     let apiUrl = '';
     if (isRegularWebpage) {
       // Use our high-tech server-side scraper endpoint
-      apiUrl = `/api/scrape-rss?url=${encodeURIComponent(targetUrl)}`;
+      apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(targetUrl)}`);
     } else {
       // Standard direct XML to JSON proxy
       apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`;

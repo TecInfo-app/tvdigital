@@ -28,6 +28,7 @@ import {
 import React, { useState, useRef, useEffect } from 'react';
 import { MediaItem } from '../types';
 import WidgetRenderer from './WidgetRenderer';
+import { getApiUrl } from '../firebase';
 
 interface ContentViewProps {
   mediaItems: MediaItem[];
@@ -95,7 +96,7 @@ export default function ContentView({
     if (isPreviewModalOpen && linkUrl.trim()) {
       setPreviewLoading(true);
       setActivePreviewIndex(0);
-      const apiUrl = `/api/scrape-rss?url=${encodeURIComponent(linkUrl.trim())}`;
+      const apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(linkUrl.trim())}`);
       fetch(apiUrl)
         .then(res => res.json())
         .then(data => {
