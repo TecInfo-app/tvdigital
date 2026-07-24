@@ -91,6 +91,23 @@ export default function App() {
     }
   }, [isTvBoxMode]);
 
+  const [layoutTheme, setLayoutTheme] = useState<'modern' | 'light'>(() => {
+    const saved = safeLocalStorage.getItem('layout_theme');
+    if (saved) return saved as 'modern' | 'light';
+    return isTvBoxMode ? 'light' : 'modern';
+  });
+
+  useEffect(() => {
+    safeLocalStorage.setItem('layout_theme', layoutTheme);
+    if (layoutTheme === 'light') {
+      document.documentElement.classList.remove('theme-modern');
+      document.documentElement.classList.add('theme-light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+      document.documentElement.classList.add('theme-modern');
+    }
+  }, [layoutTheme]);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return safeLocalStorage.getItem('sidebar_collapsed') === 'true';
   });
@@ -114,7 +131,7 @@ export default function App() {
     return saved;
   });
 
-  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean) => {
+  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean, newTheme?: 'modern' | 'light') => {
     let cleanUrl = newUrl.trim();
     if (cleanUrl.endsWith('/')) {
       cleanUrl = cleanUrl.slice(0, -1);
@@ -124,6 +141,10 @@ export default function App() {
     
     safeLocalStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
     setIsTvBoxMode(enableTvBoxMode);
+    
+    if (newTheme) {
+      setLayoutTheme(newTheme);
+    }
     
     showToast('Configurações salvas com sucesso.');
     setIsSettingsOpen(false);
@@ -609,10 +630,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090618] text-brand-on-surface flex flex-col font-inter relative overflow-hidden">
+    <div className={`min-h-screen ${layoutTheme === 'light' ? 'theme-light bg-[#f1f5f9] text-[#1e293b]' : 'theme-modern bg-[#090618] text-[#ffffff]'} flex flex-col font-inter relative overflow-hidden`}>
       
       {/* Mesh Gradient Accents */}
-      {!isTvBoxMode && (
+      {!isTvBoxMode && layoutTheme !== 'light' && (
         <>
           <div className="absolute top-[-10%] right-[-15%] w-[600px] h-[600px] rounded-full blur-[140px] bg-pink-500/15 pointer-events-none z-0" />
           <div className="absolute bottom-[-10%] left-[5%] w-[550px] h-[550px] rounded-full blur-[130px] bg-blue-400/15 pointer-events-none z-0" />
@@ -708,7 +729,8 @@ export default function App() {
               const formData = new FormData(e.currentTarget);
               const urlVal = formData.get('backendUrl') as string;
               const tvBoxVal = formData.get('tvBoxMode') === 'on';
-              handleSaveSettings(urlVal, tvBoxVal);
+              const themeVal = formData.get('layoutTheme') as 'modern' | 'light';
+              handleSaveSettings(urlVal, tvBoxVal, themeVal);
             }} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-2 font-geist">
@@ -724,6 +746,23 @@ export default function App() {
                 />
                 <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
                   Necessário para buscar conteúdos de sites e convertê-los em slides (Web Scraping). Por padrão, utiliza o servidor do Google Cloud Run temporário.
+                </p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-2 font-geist">
+                  Tema do Painel (Layout)
+                </label>
+                <select 
+                  name="layoutTheme"
+                  defaultValue={layoutTheme}
+                  className="w-full bg-[#1c183a] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-sans"
+                >
+                  <option value="light">☀️ Layout Leve (Claro - Altamente Recomendado para TVs)</option>
+                  <option value="modern">🌙 Layout Moderno (Escuro)</option>
+                </select>
+                <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
+                  O Layout Leve utiliza cores de alto contraste com fundo claro e desativa blurs de CSS experimentais, garantindo compatibilidade absoluta com qualquer TV Box ou Webview antiga.
                 </p>
               </div>
 

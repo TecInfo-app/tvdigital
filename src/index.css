@@ -63,6 +63,88 @@ body {
   display: none;
 }
 
+
+/* LIGHT AND MODERN HEX-BASED COMPATIBILITY THEMES */
+
+/* Light Theme Variables */
+.theme-light {
+  --bg-app: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-sidebar: #0f172a;
+  --bg-header: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: #cbd5e1;
+  --border-color-soft: #e2e8f0;
+  --accent-color: #2563eb;
+  --accent-color-hover: #1d4ed8;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+}
+
+/* Modern (Dark) Theme Variables */
+.theme-modern {
+  --bg-app: #090618;
+  --bg-card: #14102c;
+  --bg-sidebar: #14102c;
+  --bg-header: #14102c;
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: rgba(255, 255, 255, 0.15);
+  --border-color-soft: rgba(255, 255, 255, 0.08);
+  --accent-color: #c7d2fe;
+  --accent-color-hover: #a5b4fc;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+}
+
+/* Base resets using theme variables for absolute older WebView compatibility */
+.theme-light, .theme-modern {
+  background-color: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-light .glass-card, .theme-modern .glass-card {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-color-soft) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-light aside, .theme-modern aside {
+  background-color: var(--bg-sidebar) !important;
+  border-color: var(--border-color-soft) !important;
+}
+
+.theme-light header, .theme-modern header {
+  background-color: var(--bg-header) !important;
+  border-color: var(--border-color-soft) !important;
+}
+
+/* Semantic helper classes with HEX fallback to prevent oklch bugs on old WebViews */
+.app-bg { background-color: var(--bg-app) !important; }
+.app-card { background-color: var(--bg-card) !important; border: 1px solid var(--border-color-soft) !important; border-radius: 16px; }
+.app-text { color: var(--text-primary) !important; }
+.app-text-secondary { color: var(--text-secondary) !important; }
+.app-text-muted { color: var(--text-muted) !important; }
+.app-border { border-color: var(--border-color) !important; }
+.app-border-soft { border-color: var(--border-color-soft) !important; }
+
+/* Inputs and selects */
+.theme-light input, .theme-light select, .theme-light textarea {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.theme-modern input, .theme-modern select, .theme-modern textarea {
+  background-color: #1c183a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
 /* TV Box Performance Mode overrides */
 .tv-box-performance * {
   backdrop-filter: none !important;
