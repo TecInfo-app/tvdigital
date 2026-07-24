@@ -82,6 +82,8 @@ export function cleanUndefined<T>(obj: T): T {
   return obj;
 }
 
+import { safeLocalStorage } from './utils/safeStorage';
+
 /**
  * Resolves the API URL dynamically depending on the deployment environment.
  * If running on a static host like GitHub Pages, it routes requests to the running Cloud Run backend.
@@ -96,12 +98,12 @@ export function getApiUrl(path: string): string {
     if (isStaticOrWebView) {
       // The Cloud Run live preview URL acting as the API backend
       const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
-      let savedBackend = localStorage.getItem('backend_api_url') || fallbackBackend;
+      let savedBackend = safeLocalStorage.getItem('backend_api_url') || fallbackBackend;
       
       // Auto-migrate old pre-url to dev-url
       if (savedBackend.includes('ais-pre-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app')) {
         savedBackend = fallbackBackend;
-        localStorage.setItem('backend_api_url', fallbackBackend);
+        safeLocalStorage.setItem('backend_api_url', fallbackBackend);
       }
       
       const cleanPath = path.startsWith('/') ? path : `/${path}`;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, doc, getDocs, writeBatch, getDocFromServer } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, cleanUndefined } from './firebase';
+import { safeLocalStorage } from './utils/safeStorage';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -53,7 +54,7 @@ export default function App() {
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTvBoxMode, setIsTvBoxMode] = useState(() => {
-    const saved = localStorage.getItem('tv_box_mode');
+    const saved = safeLocalStorage.getItem('tv_box_mode');
     if (saved !== null) return saved === 'true';
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent.toLowerCase();
@@ -76,24 +77,24 @@ export default function App() {
   }, [isTvBoxMode]);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    return localStorage.getItem('sidebar_collapsed') === 'true';
+    return safeLocalStorage.getItem('sidebar_collapsed') === 'true';
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('sidebar_collapsed', String(next));
+      safeLocalStorage.setItem('sidebar_collapsed', String(next));
       return next;
     });
   };
 
   const [backendUrl, setBackendUrl] = useState(() => {
     const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
-    let saved = localStorage.getItem('backend_api_url') || fallbackBackend;
+    let saved = safeLocalStorage.getItem('backend_api_url') || fallbackBackend;
     if (saved.includes('ais-pre-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app')) {
       saved = fallbackBackend;
-      localStorage.setItem('backend_api_url', fallbackBackend);
+      safeLocalStorage.setItem('backend_api_url', fallbackBackend);
     }
     return saved;
   });
@@ -103,10 +104,10 @@ export default function App() {
     if (cleanUrl.endsWith('/')) {
       cleanUrl = cleanUrl.slice(0, -1);
     }
-    localStorage.setItem('backend_api_url', cleanUrl);
+    safeLocalStorage.setItem('backend_api_url', cleanUrl);
     setBackendUrl(cleanUrl);
     
-    localStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
+    safeLocalStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
     setIsTvBoxMode(enableTvBoxMode);
     
     showToast('Configurações salvas com sucesso.');
@@ -144,10 +145,10 @@ export default function App() {
           console.warn("[App Load] Firebase firestore load timed out. Loading from localStorage or defaults...");
           
           try {
-            const localMedia = localStorage.getItem('local_media_items');
-            const localPlayers = localStorage.getItem('local_players');
-            const localPlaylists = localStorage.getItem('local_playlists');
-            const localLogs = localStorage.getItem('local_logs');
+            const localMedia = safeLocalStorage.getItem('local_media_items');
+            const localPlayers = safeLocalStorage.getItem('local_players');
+            const localPlaylists = safeLocalStorage.getItem('local_playlists');
+            const localLogs = safeLocalStorage.getItem('local_logs');
 
             setMediaItems(localMedia ? JSON.parse(localMedia) : INITIAL_MEDIA_ITEMS);
             setPlayers(localPlayers ? JSON.parse(localPlayers) : INITIAL_PLAYERS);
@@ -204,34 +205,34 @@ export default function App() {
               setLogs(INITIAL_LOGS);
 
               // Update cache
-              localStorage.setItem('local_media_items', JSON.stringify(INITIAL_MEDIA_ITEMS));
-              localStorage.setItem('local_players', JSON.stringify(INITIAL_PLAYERS));
-              localStorage.setItem('local_playlists', JSON.stringify(INITIAL_PLAYLISTS));
-              localStorage.setItem('local_logs', JSON.stringify(INITIAL_LOGS));
+              safeLocalStorage.setItem('local_media_items', JSON.stringify(INITIAL_MEDIA_ITEMS));
+              safeLocalStorage.setItem('local_players', JSON.stringify(INITIAL_PLAYERS));
+              safeLocalStorage.setItem('local_playlists', JSON.stringify(INITIAL_PLAYLISTS));
+              safeLocalStorage.setItem('local_logs', JSON.stringify(INITIAL_LOGS));
             } else {
               // Load existing data from Firestore
               const items: MediaItem[] = [];
               mediaSnap.forEach(doc => items.push(doc.data() as MediaItem));
               setMediaItems(items);
-              localStorage.setItem('local_media_items', JSON.stringify(items));
+              safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
 
               const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
               const loadedPlayers: Player[] = [];
               playersSnap.forEach(doc => loadedPlayers.push(doc.data() as Player));
               setPlayers(loadedPlayers);
-              localStorage.setItem('local_players', JSON.stringify(loadedPlayers));
+              safeLocalStorage.setItem('local_players', JSON.stringify(loadedPlayers));
 
               const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
               const loadedPlaylists: Playlist[] = [];
               playlistsSnap.forEach(doc => loadedPlaylists.push(doc.data() as Playlist));
               setPlaylists(loadedPlaylists);
-              localStorage.setItem('local_playlists', JSON.stringify(loadedPlaylists));
+              safeLocalStorage.setItem('local_playlists', JSON.stringify(loadedPlaylists));
 
               const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
               const loadedLogs: LogEntry[] = [];
               logsSnap.forEach(doc => loadedLogs.push(doc.data() as LogEntry));
               setLogs(loadedLogs);
-              localStorage.setItem('local_logs', JSON.stringify(loadedLogs));
+              safeLocalStorage.setItem('local_logs', JSON.stringify(loadedLogs));
             }
           }
         } catch (error) {
