@@ -36,21 +36,39 @@ function getFallbackThumbnail(index: number): string {
 
 /**
  * Client-side Scraper and RSS-XML Parser using DOMParser and free CORS proxies.
- * Falls back gracefully to multiple proxies (allorigins.win, corsproxy.io) to guarantee uptime.
+ * Falls back gracefully to multiple proxies with low timeouts to guarantee uptime and speed.
  */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
 export async function clientSideScrape(targetUrl: string): Promise<any> {
   let formattedUrl = targetUrl.trim();
   if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
     formattedUrl = `https://${formattedUrl}`;
   }
 
-  // We will try multiple proxies to ensure maximum reliability and redundancy
+  // We try fast proxies first, then slower ones. Timeout is 2.5s per proxy to avoid hanging.
   const proxies = [
-    // 1. AllOrigins (Very reliable CORS proxy)
-    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    // 2. Corsproxy.io (Super fast, clean proxy)
+    // 1. Corsproxy.io (Extremely fast, modern CORS proxy)
     (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    // 3. direct (just in case)
+    // 2. Codetabs Proxy (Very fast secondary proxy)
+    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    // 3. AllOrigins (Extremely reliable fallback, but can be slower)
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    // 4. Direct fetch (In case site supports CORS natively)
     (url: string) => url
   ];
 
@@ -60,8 +78,8 @@ export async function clientSideScrape(targetUrl: string): Promise<any> {
   for (const getProxyUrl of proxies) {
     try {
       const proxyUrl = getProxyUrl(formattedUrl);
-      console.log(`[Client Scraper] Fetching via proxy: ${proxyUrl}`);
-      const res = await fetch(proxyUrl);
+      console.log(`[Client Scraper] Fetching via proxy with timeout: ${proxyUrl}`);
+      const res = await fetchWithTimeout(proxyUrl, {}, 2500);
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       htmlText = await res.text();
       if (htmlText && htmlText.trim().length > 100) {
@@ -69,7 +87,7 @@ export async function clientSideScrape(targetUrl: string): Promise<any> {
         break;
       }
     } catch (e: any) {
-      console.warn(`[Client Scraper] Proxy failed: ${e.message}`);
+      console.warn(`[Client Scraper] Proxy option failed or timed out: ${e.message}`);
       fetchError = e;
     }
   }
