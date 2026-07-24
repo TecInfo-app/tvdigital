@@ -53,7 +53,13 @@ export default function App() {
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [backendUrl, setBackendUrl] = useState(() => {
-    return localStorage.getItem('backend_api_url') || 'https://ais-pre-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
+    const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
+    let saved = localStorage.getItem('backend_api_url') || fallbackBackend;
+    if (saved.includes('ais-pre-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app')) {
+      saved = fallbackBackend;
+      localStorage.setItem('backend_api_url', fallbackBackend);
+    }
+    return saved;
   });
 
   const handleSaveSettings = (newUrl: string) => {
