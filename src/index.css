@@ -1,52 +1,23 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Montserrat:wght@400;500;700;800;900&display=swap');
 
 @theme {
-  --color-brand-bg: #130f2c;
-  --color-brand-surface: rgba(255, 255, 255, 0.05);
-  --color-brand-surface-dim: rgba(255, 255, 255, 0.03);
-  --color-brand-surface-bright: rgba(255, 255, 255, 0.16);
-  --color-brand-surface-lowest: rgba(0, 0, 0, 0.25);
-  --color-brand-surface-low: rgba(255, 255, 255, 0.07);
-  --color-brand-surface-container: rgba(255, 255, 255, 0.04);
-  --color-brand-surface-high: rgba(255, 255, 255, 0.12);
-  --color-brand-surface-highest: rgba(255, 255, 255, 0.18);
-  
-  --color-brand-primary: #c7d2fe; /* indigo-200 */
-  --color-brand-on-primary: #1e1b4b; /* indigo-950 */
-  --color-brand-primary-container: rgba(255, 255, 255, 0.12);
-  --color-brand-on-primary-container: #ffffff;
-  
-  --color-brand-secondary: #f472b6; /* pink-400 */
-  --color-brand-on-secondary: #500724; /* pink-950 */
-  --color-brand-secondary-container: rgba(244, 114, 182, 0.15);
-  --color-brand-on-secondary-container: #ffffff;
-  
-  --color-brand-tertiary: #fbbf24; /* amber-400 */
-  
-  --color-brand-on-surface: #ffffff;
-  --color-brand-on-surface-variant: rgba(255, 255, 255, 0.7);
-  --color-brand-outline: rgba(255, 255, 255, 0.25);
-  --color-brand-outline-variant: rgba(255, 255, 255, 0.12);
-  
   --font-geist: "Geist", sans-serif;
   --font-inter: "Inter", sans-serif;
-  --font-cursive: "Caveat", cursive;
-  --font-montserrat: "Montserrat", sans-serif;
 }
 
 body {
-  background: #090618;
-  color: #ffffff;
+  background-color: #f9fafb;
+  color: #111827;
   font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
 .glass-card {
-  background: #14102c;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .status-pulse {
@@ -63,107 +34,3 @@ body {
   display: none;
 }
 
-
-/* LIGHT AND MODERN HEX-BASED COMPATIBILITY THEMES */
-
-/* Light Theme Variables */
-.theme-light {
-  --bg-app: #f1f5f9;
-  --bg-card: #ffffff;
-  --bg-sidebar: #0f172a;
-  --bg-header: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --border-color: #cbd5e1;
-  --border-color-soft: #e2e8f0;
-  --accent-color: #2563eb;
-  --accent-color-hover: #1d4ed8;
-  --success-color: #10b981;
-  --danger-color: #ef4444;
-  --warning-color: #f59e0b;
-}
-
-/* Modern (Dark) Theme Variables */
-.theme-modern {
-  --bg-app: #090618;
-  --bg-card: #14102c;
-  --bg-sidebar: #14102c;
-  --bg-header: #14102c;
-  --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border-color: rgba(255, 255, 255, 0.15);
-  --border-color-soft: rgba(255, 255, 255, 0.08);
-  --accent-color: #c7d2fe;
-  --accent-color-hover: #a5b4fc;
-  --success-color: #10b981;
-  --danger-color: #ef4444;
-  --warning-color: #f59e0b;
-}
-
-/* Base resets using theme variables for absolute older WebView compatibility */
-.theme-light, .theme-modern {
-  background-color: var(--bg-app) !important;
-  color: var(--text-primary) !important;
-}
-
-.theme-light .glass-card, .theme-modern .glass-card {
-  background-color: var(--bg-card) !important;
-  border: 1px solid var(--border-color-soft) !important;
-  color: var(--text-primary) !important;
-}
-
-.theme-light aside, .theme-modern aside {
-  background-color: var(--bg-sidebar) !important;
-  border-color: var(--border-color-soft) !important;
-}
-
-.theme-light header, .theme-modern header {
-  background-color: var(--bg-header) !important;
-  border-color: var(--border-color-soft) !important;
-}
-
-/* Semantic helper classes with HEX fallback to prevent oklch bugs on old WebViews */
-.app-bg { background-color: var(--bg-app) !important; }
-.app-card { background-color: var(--bg-card) !important; border: 1px solid var(--border-color-soft) !important; border-radius: 16px; }
-.app-text { color: var(--text-primary) !important; }
-.app-text-secondary { color: var(--text-secondary) !important; }
-.app-text-muted { color: var(--text-muted) !important; }
-.app-border { border-color: var(--border-color) !important; }
-.app-border-soft { border-color: var(--border-color-soft) !important; }
-
-/* Inputs and selects */
-.theme-light input, .theme-light select, .theme-light textarea {
-  background-color: #ffffff !important;
-  color: #1e293b !important;
-  border: 1px solid #cbd5e1 !important;
-}
-.theme-modern input, .theme-modern select, .theme-modern textarea {
-  background-color: #1c183a !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-}
-
-/* TV Box Performance Mode overrides */
-.tv-box-performance * {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  transition: none !important; /* Disabling transitions on low-spec saves redraw layout time */
-  animation-duration: 0.001s !important; /* Stop heavy canvas/CSS keyframe animation ticks */
-}
-
-.tv-box-performance body {
-  background: #090615 !important; /* solid fallback instead of complex radial-gradient */
-}
-
-.tv-box-performance .glass-card {
-  background: rgba(20, 15, 40, 0.98) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.tv-box-performance aside,
-.tv-box-performance header,
-.tv-box-performance .bg-\[\#140e30\]\/95 {
-  background-color: #120d2c !important;
-}

@@ -66,22 +66,22 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar" 
-      className={`${sidebarWidthClass} ${mobileTranslateClass} h-[calc(100vh-32px)] fixed left-4 top-4 border border-white/10 bg-[#14102c] flex flex-col gap-4 z-50 transition-all duration-300 rounded-[28px] shadow-2xl`}
+      className={`${sidebarWidthClass} ${mobileTranslateClass} h-screen fixed left-0 top-0 border-r border-gray-200 bg-white flex flex-col gap-4 z-50 transition-all duration-300 shadow-sm`}
     >
       {/* Brand Header */}
       {!isCollapsed ? (
         <div className="flex items-center justify-between mb-8 px-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg shrink-0">
-              <Bolt className="text-white w-4.5 h-4.5" />
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm shrink-0">
+              <Bolt className="text-gray-900 w-4.5 h-4.5" />
             </div>
-            <span className="font-geist text-lg font-bold text-white tracking-wide truncate">SignageOS</span>
+            <span className="text-lg font-bold text-gray-900 tracking-wide truncate">SignageOS</span>
           </div>
           <div className="flex items-center gap-1">
             {/* Toggle Collapse Button on Desktop */}
             <button 
               onClick={onToggleCollapse}
-              className="hidden lg:flex text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-lg transition-all cursor-pointer shrink-0"
+              className="hidden lg:flex text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-lg transition-all cursor-pointer shrink-0"
               title="Recolher Menu"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -89,7 +89,7 @@ export default function Sidebar({
             {/* Close Button on Mobile */}
             <button 
               onClick={onCloseMobile}
-              className="lg:hidden text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-lg transition-all cursor-pointer shrink-0"
+              className="lg:hidden text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-lg transition-all cursor-pointer shrink-0"
               title="Fechar Menu"
             >
               <X className="w-4 h-4" />
@@ -98,12 +98,12 @@ export default function Sidebar({
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center gap-4 mb-8 px-1">
-          <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg shrink-0">
-            <Bolt className="text-white w-4.5 h-4.5" />
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm shrink-0">
+            <Bolt className="text-gray-900 w-4.5 h-4.5" />
           </div>
           <button 
             onClick={onToggleCollapse}
-            className="hidden lg:flex text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-lg transition-all cursor-pointer"
+            className="hidden lg:flex text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-lg transition-all cursor-pointer"
             title="Expandir Menu"
           >
             <ChevronRight className="w-4 h-4" />
@@ -128,11 +128,11 @@ export default function Sidebar({
                 isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2.5'
               } ${
                 isActive 
-                  ? 'bg-white/10 text-white font-bold border border-white/15 shadow-md' 
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
-              <IconComponent className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-white/60'}`} />
+              <IconComponent className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
               {!isCollapsed && <span className="truncate">{item.label}</span>}
             </button>
           );
@@ -140,14 +140,14 @@ export default function Sidebar({
       </nav>
 
       {/* Sidebar Footer */}
-      <div className={`mt-auto space-y-4 pt-6 border-t border-white/10 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
+      <div className={`mt-auto space-y-4 pt-6 border-t border-gray-100 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
         <button 
           onClick={() => {
             onDeployClick();
             if (onCloseMobile) onCloseMobile();
           }}
           title={isCollapsed ? "Publicar Novo Conteúdo" : undefined}
-          className={`w-full bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-xl font-bold text-xs flex items-center justify-center hover:opacity-95 active:scale-[0.98] transition-all duration-150 cursor-pointer shadow-lg ${
+          className={`w-full bg-blue-600 text-gray-900 rounded-xl font-bold text-xs flex items-center justify-center hover:bg-blue-700 active:scale-[0.98] transition-all duration-150 cursor-pointer shadow-sm ${
             isCollapsed ? 'p-3' : 'py-3 gap-2'
           }`}
         >
@@ -162,7 +162,7 @@ export default function Sidebar({
               if (onCloseMobile) onCloseMobile();
             }}
             title={isCollapsed ? "Configurações" : undefined}
-            className={`w-full flex items-center rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors text-xs text-left cursor-pointer ${
+            className={`w-full flex items-center rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs text-left cursor-pointer ${
               isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2'
             }`}
           >
@@ -175,7 +175,7 @@ export default function Sidebar({
               if (onCloseMobile) onCloseMobile();
             }}
             title={isCollapsed ? "Suporte" : undefined}
-            className={`w-full flex items-center rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors text-xs text-left cursor-pointer ${
+            className={`w-full flex items-center rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs text-left cursor-pointer ${
               isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-2'
             }`}
           >
@@ -185,10 +185,10 @@ export default function Sidebar({
         </div>
 
         {/* User Card */}
-        <div className={`flex items-center bg-white/5 rounded-2xl border border-white/10 w-full ${
+        <div className={`flex items-center bg-gray-50 rounded-2xl border border-gray-100 w-full ${
           isCollapsed ? 'justify-center p-2' : 'gap-2.5 p-3'
         }`}>
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-white/10 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 bg-white flex items-center justify-center shrink-0">
             {user?.photoURL ? (
               <img 
                 className="w-full h-full object-cover" 
@@ -200,18 +200,18 @@ export default function Sidebar({
                 }}
               />
             ) : null}
-            <User className="w-4 h-4 text-white" />
+            <User className="w-4 h-4 text-gray-400" />
           </div>
           {!isCollapsed && (
             <>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold text-white truncate">{user?.email || 'admin@fastplayer.pro'}</p>
-                <p className="text-[9px] text-white/40 uppercase tracking-wider font-semibold font-geist mt-0.5">Admin da Rede</p>
+                <p className="text-[11px] font-bold text-gray-900 truncate">{user?.email || 'admin@fastplayer.pro'}</p>
+                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold mt-0.5">Admin da Rede</p>
               </div>
               <button 
                 onClick={onLogout}
                 title="Sair"
-                className="text-white/40 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer shrink-0"
+                className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 transition-all cursor-pointer shrink-0"
               >
                 <LogOut className="w-4 h-4" />
               </button>

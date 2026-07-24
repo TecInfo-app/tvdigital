@@ -434,12 +434,12 @@ export default function ContentView({
       <div className="lg:col-span-8 space-y-6">
         
         {/* Playlist Management Card */}
-        <div className="glass-card rounded-2xl overflow-hidden border border-brand-outline-variant/40 shadow-xl">
-          <div className="p-6 flex justify-between items-center border-b border-brand-outline-variant/30">
+        <div className="glass-card rounded-2xl overflow-hidden border border-gray-200 40 shadow-xl">
+          <div className="p-6 flex justify-between items-center border-b border-gray-200 30">
             <div className="flex items-center gap-3">
-              <Layers className="text-brand-primary w-5 h-5" />
+              <Layers className="text-blue-600 w-5 h-5" />
               <div>
-                <h3 className="font-geist text-lg font-bold text-brand-on-surface">Playlist Ativa: Campanha de Verão 2024</h3>
+                <h3 className="font-geist text-lg font-bold text-gray-900">Playlist Ativa: Campanha de Verão 2024</h3>
                 <p className="text-xs text-brand-outline mt-0.5">Controle pesos de reprodução, linhas do tempo e prioridades de ativos</p>
               </div>
             </div>
@@ -449,7 +449,7 @@ export default function ContentView({
                   // Scroll to Quick Upload smoothly
                   document.getElementById('quick-upload-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="bg-brand-primary-container text-brand-on-primary-container px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer hover:opacity-95"
+                className="bg-blue-600-container text-brand-on-primary-container px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer hover:opacity-95"
               >
                 <Plus className="w-4 h-4" />
                 <span>Adicionar Mídia</span>
@@ -459,7 +459,7 @@ export default function ContentView({
 
           <div className="divide-y divide-brand-outline-variant/30">
             {mediaItems.length === 0 ? (
-              <div className="p-12 text-center text-brand-on-surface-variant text-sm flex flex-col items-center gap-2">
+              <div className="p-12 text-center text-gray-900-variant text-sm flex flex-col items-center gap-2">
                 <AlertCircle className="w-8 h-8 text-brand-outline" />
                 <p>Nenhuma mídia na playlist ativa. Use o formulário de upload abaixo para adicionar.</p>
               </div>
@@ -490,20 +490,20 @@ export default function ContentView({
                       draggedIndex === index ? 'opacity-40 border-dashed border-2 border-brand-primary' : ''
                     } ${
                       isCurrentlyPlaying 
-                        ? 'bg-brand-primary-container/10 border-l-4 border-brand-primary' 
+                        ? 'bg-blue-600-container/10 border-l-4 border-brand-primary' 
                         : 'hover:bg-brand-surface-container/30 border-l-4 border-transparent'
                     }`}
                   >
                     {/* Drag Handle & Index & Reorder Controls */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-brand-outline hover:text-brand-primary cursor-grab active:cursor-grabbing p-1" title="Arraste para mover">
+                      <div className="text-brand-outline hover:text-blue-600 cursor-grab active:cursor-grabbing p-1" title="Arraste para mover">
                         <GripVertical className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col items-center gap-0.5 shrink-0">
                         <button 
                           onClick={() => moveItem(index, 'up')}
                           disabled={index === 0}
-                          className={`text-brand-outline hover:text-brand-primary disabled:opacity-20 disabled:pointer-events-none p-0.5 cursor-pointer`}
+                          className={`text-brand-outline hover:text-blue-600 disabled:opacity-20 disabled:pointer-events-none p-0.5 cursor-pointer`}
                         >
                           <ChevronUp className="w-3.5 h-3.5" />
                         </button>
@@ -513,7 +513,7 @@ export default function ContentView({
                         <button 
                           onClick={() => moveItem(index, 'down')}
                           disabled={index === mediaItems.length - 1}
-                          className={`text-brand-outline hover:text-brand-primary disabled:opacity-20 disabled:pointer-events-none p-0.5 cursor-pointer`}
+                          className={`text-brand-outline hover:text-blue-600 disabled:opacity-20 disabled:pointer-events-none p-0.5 cursor-pointer`}
                         >
                           <ChevronDown className="w-3.5 h-3.5" />
                         </button>
@@ -521,7 +521,7 @@ export default function ContentView({
                     </div>
 
                     {/* Media Thumbnail */}
-                    <div className="w-20 md:w-24 h-12 md:h-14 rounded-xl bg-brand-surface-lowest overflow-hidden border border-brand-outline-variant/30 shrink-0 relative">
+                    <div className="w-20 md:w-24 h-12 md:h-14 rounded-xl bg-brand-surface-lowest overflow-hidden border border-gray-200 30 shrink-0 relative">
                       {item.type === 'video' ? (
                         <video 
                           src={item.url} 
@@ -539,7 +539,7 @@ export default function ContentView({
                       )}
                       
                       {isCurrentlyPlaying && (
-                        <div className="absolute inset-0 bg-brand-primary/20 flex items-center justify-center backdrop-blur-[1px]">
+                        <div className="absolute inset-0 bg-blue-50 flex items-center justify-center backdrop-blur-[1px]">
                           <span className="w-2.5 h-2.5 bg-brand-secondary rounded-full status-pulse"></span>
                         </div>
                       )}
@@ -553,7 +553,7 @@ export default function ContentView({
                             type="text" 
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="bg-brand-surface-lowest border border-brand-outline-variant rounded-lg px-2.5 py-1 text-xs text-brand-on-surface font-semibold focus:outline-none focus:ring-1 focus:ring-brand-primary min-w-0 flex-1"
+                            className="bg-brand-surface-lowest border border-brand-outline-variant rounded-lg px-2.5 py-1 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-brand-primary min-w-0 flex-1"
                           />
                           <div className="flex gap-2">
                             <input 
@@ -561,20 +561,20 @@ export default function ContentView({
                               value={editDuration}
                               onChange={(e) => setEditDuration(Number(e.target.value))}
                               placeholder="Secs"
-                              className="bg-brand-surface-lowest border border-brand-outline-variant rounded-lg px-2.5 py-1 text-xs text-brand-on-surface font-semibold focus:outline-none focus:ring-1 focus:ring-brand-primary w-16"
+                              className="bg-brand-surface-lowest border border-brand-outline-variant rounded-lg px-2.5 py-1 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-brand-primary w-16"
                             />
                             <input 
                               type="text" 
                               value={editSchedule}
                               onChange={(e) => setEditSchedule(e.target.value)}
                               placeholder="Days"
-                              className="bg-brand-surface-lowest border border-brand-outline-variant rounded-lg px-2.5 py-1 text-xs text-brand-on-surface font-semibold focus:outline-none focus:ring-1 focus:ring-brand-primary w-24"
+                              className="bg-brand-surface-lowest border border-brand-outline-variant rounded-lg px-2.5 py-1 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-brand-primary w-24"
                             />
                           </div>
                         </div>
                       ) : (
                         <>
-                          <h4 className="font-semibold text-xs md:text-sm text-brand-on-surface truncate pr-2">
+                          <h4 className="font-semibold text-xs md:text-sm text-gray-900 truncate pr-2">
                             {item.name}
                           </h4>
                           <div className="flex flex-wrap gap-2 md:gap-3 mt-1.5 items-center">
@@ -584,8 +584,8 @@ export default function ContentView({
                             </span>
                             <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${
                               item.schedule === 'Always On' || item.schedule === 'ALWAYS ON'
-                                ? 'bg-brand-secondary-container/10 text-brand-secondary'
-                                : 'bg-brand-surface-highest text-brand-on-surface-variant'
+                                ? 'bg-brand-secondary-container/10 text-pink-600'
+                                : 'bg-brand-surface-highest text-gray-900-variant'
                             }`}>
                               <Calendar className="w-3.5 h-3.5 shrink-0" />
                               <span className="uppercase tracking-wider">
@@ -603,7 +603,7 @@ export default function ContentView({
                         <>
                           <button 
                             onClick={() => saveEdit(item.id)}
-                            className="p-2 text-brand-secondary hover:bg-brand-secondary/10 rounded-xl cursor-pointer"
+                            className="p-2 text-pink-600 hover:bg-brand-secondary/10 rounded-xl cursor-pointer"
                             title="Confirmar edição"
                           >
                             <Check className="w-4.5 h-4.5" />
@@ -620,7 +620,7 @@ export default function ContentView({
                         <>
                           <button 
                             onClick={() => startEdit(item)}
-                            className="p-2 text-brand-outline hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl cursor-pointer"
+                            className="p-2 text-brand-outline hover:text-blue-600 hover:bg-blue-50 rounded-xl cursor-pointer"
                             title="Editar metadados"
                           >
                             <Edit className="w-4.5 h-4.5" />
@@ -642,10 +642,10 @@ export default function ContentView({
           </div>
 
           {/* Showings count and loader */}
-          <div className="p-4 bg-brand-surface-container/60 border-t border-brand-outline-variant/30 text-center">
+          <div className="p-4 bg-brand-surface-container/60 border-t border-gray-200 30 text-center">
             <p className="text-xs text-brand-outline">
               Mostrando {mediaItems.length} de {mediaItems.length} itens. 
-              <span className="text-brand-primary hover:underline font-bold ml-1.5 cursor-pointer">
+              <span className="text-blue-600 hover:underline font-bold ml-1.5 cursor-pointer">
                 Carregar Mais
               </span>
             </p>
@@ -653,24 +653,24 @@ export default function ContentView({
         </div>
 
         {/* Quick Upload Form Section */}
-        <div id="quick-upload-section" className="glass-card p-6 rounded-2xl border border-brand-outline-variant/40 shadow-xl">
+        <div id="quick-upload-section" className="glass-card p-6 rounded-2xl border border-gray-200 40 shadow-xl">
           <div className="flex items-center gap-3 mb-4">
-            <CloudUpload className="text-brand-primary w-5 h-5" />
+            <CloudUpload className="text-blue-600 w-5 h-5" />
             <div>
-              <h3 className="font-geist text-lg font-bold text-brand-on-surface">Adicionar Mídia</h3>
+              <h3 className="font-geist text-lg font-bold text-gray-900">Adicionar Mídia</h3>
               <p className="text-xs text-brand-outline mt-0.5 font-inter">Selecione arquivos locais ou insira links da web diretamente</p>
             </div>
           </div>
 
           {/* Tab Selector */}
-          <div className="flex border-b border-brand-outline-variant/30 mb-6 col-span-full">
+          <div className="flex border-b border-gray-200 30 mb-6 col-span-full">
             <button
               type="button"
               onClick={() => { setUploadTab('file'); setUploadError(''); }}
               className={`flex items-center gap-2 px-5 py-2.5 border-b-2 font-geist text-xs font-bold transition-all cursor-pointer ${
                 uploadTab === 'file'
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-brand-outline hover:text-brand-on-surface'
+                  ? 'border-brand-primary text-blue-600'
+                  : 'border-transparent text-brand-outline hover:text-gray-900'
               }`}
             >
               <File className="w-3.5 h-3.5" />
@@ -681,8 +681,8 @@ export default function ContentView({
               onClick={() => { setUploadTab('link'); setUploadError(''); }}
               className={`flex items-center gap-2 px-5 py-2.5 border-b-2 font-geist text-xs font-bold transition-all cursor-pointer ${
                 uploadTab === 'link'
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-brand-outline hover:text-brand-on-surface'
+                  ? 'border-brand-primary text-blue-600'
+                  : 'border-transparent text-brand-outline hover:text-gray-900'
               }`}
             >
               <Link className="w-3.5 h-3.5" />
@@ -698,7 +698,7 @@ export default function ContentView({
                 value={mediaName}
                 onChange={(e) => setMediaName(e.target.value)}
                 placeholder="Ex: Especial de Manhã 01"
-                className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-4 py-2.5 text-xs text-brand-on-surface focus:ring-2 focus:ring-brand-primary focus:border-transparent focus:outline-none transition-all"
+                className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-4 py-2.5 text-xs text-gray-900 focus:ring-2 focus:ring-brand-primary focus:border-transparent focus:outline-none transition-all"
               />
             </div>
             
@@ -710,15 +710,15 @@ export default function ContentView({
                 onChange={(e) => setDuration(Number(e.target.value))}
                 min={1}
                 max={300}
-                className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-4 py-2.5 text-xs text-brand-on-surface focus:ring-2 focus:ring-brand-primary focus:border-transparent focus:outline-none transition-all"
+                className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-4 py-2.5 text-xs text-gray-900 focus:ring-2 focus:ring-brand-primary focus:border-transparent focus:outline-none transition-all"
               />
             </div>
 
             {/* Schedule Builder: Days & Time range */}
-            <div className="col-span-full space-y-3 p-4 bg-brand-surface-container/50 rounded-2xl border border-brand-outline-variant/30">
+            <div className="col-span-full space-y-3 p-4 bg-brand-surface-container/50 rounded-2xl border border-gray-200 30">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-brand-outline uppercase tracking-wider font-geist flex items-center gap-1.5 cursor-pointer">
-                  <Calendar className="w-3.5 h-3.5 text-brand-primary" />
+                  <Calendar className="w-3.5 h-3.5 text-blue-600" />
                   <span>Dias e Horários de Exibição</span>
                 </label>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -728,15 +728,15 @@ export default function ContentView({
                     onChange={(e) => setEnableSchedule(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-brand-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
-                  <span className="ml-2 text-xs font-bold text-brand-on-surface">
+                  <div className="w-9 h-5 bg-brand-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                  <span className="ml-2 text-xs font-bold text-gray-900">
                     {enableSchedule ? 'Personalizado' : 'Sempre Ativo'}
                   </span>
                 </label>
               </div>
 
               {enableSchedule && (
-                <div className="space-y-3 pt-3 animate-in fade-in duration-200 border-t border-brand-outline-variant/20 mt-3">
+                <div className="space-y-3 pt-3 animate-in fade-in duration-200 border-t border-gray-200 20 mt-3">
                   {/* Days selection */}
                   <div className="flex flex-wrap gap-1.5">
                     {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(day => {
@@ -748,8 +748,8 @@ export default function ContentView({
                           onClick={() => toggleDay(day)}
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                             isSelected 
-                              ? 'bg-brand-primary text-brand-on-primary shadow-sm' 
-                              : 'bg-brand-surface-lowest border border-brand-outline-variant text-brand-on-surface-variant hover:border-brand-primary'
+                              ? 'bg-blue-600 text-brand-on-primary shadow-sm' 
+                              : 'bg-brand-surface-lowest border border-brand-outline-variant text-gray-900-variant hover:border-brand-primary'
                           }`}
                         >
                           {day}
@@ -766,7 +766,7 @@ export default function ContentView({
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-brand-on-surface focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-gray-900 focus:ring-1 focus:ring-brand-primary focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1">
@@ -775,7 +775,7 @@ export default function ContentView({
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-brand-on-surface focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-gray-900 focus:ring-1 focus:ring-brand-primary focus:outline-none"
                       />
                     </div>
                   </div>
@@ -788,7 +788,7 @@ export default function ContentView({
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-brand-on-surface focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-gray-900 focus:ring-1 focus:ring-brand-primary focus:outline-none"
                       />
                     </div>
                     <div className="space-y-1">
@@ -797,7 +797,7 @@ export default function ContentView({
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-brand-on-surface focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                        className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-gray-900 focus:ring-1 focus:ring-brand-primary focus:outline-none"
                       />
                     </div>
                   </div>
@@ -811,7 +811,7 @@ export default function ContentView({
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onClick={triggerFileSelect}
-                className="col-span-full border-2 border-dashed border-brand-outline-variant rounded-2xl p-8 flex flex-col items-center justify-center gap-2 bg-brand-surface-lowest/40 hover:bg-brand-primary/5 hover:border-brand-primary/60 transition-all cursor-pointer group text-center"
+                className="col-span-full border-2 border-dashed border-brand-outline-variant rounded-2xl p-8 flex flex-col items-center justify-center gap-2 bg-brand-surface-lowest/40 hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer group text-center"
               >
                 <input 
                   type="file" 
@@ -822,17 +822,17 @@ export default function ContentView({
                 />
                 {previewUrl ? (
                   <div className="space-y-3">
-                    <div className="w-40 h-20 rounded-xl overflow-hidden border border-brand-outline-variant/60 mx-auto">
+                    <div className="w-40 h-20 rounded-xl overflow-hidden border border-gray-200 60 mx-auto">
                       <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                     </div>
-                    <p className="text-xs text-brand-secondary font-bold font-geist">✓ Arquivo carregado com sucesso!</p>
+                    <p className="text-xs text-pink-600 font-bold font-geist">✓ Arquivo carregado com sucesso!</p>
                     <p className="text-[10px] text-brand-outline font-mono-data">{selectedFile?.name}</p>
                   </div>
                 ) : (
                   <>
-                    <CloudUpload className="w-12 h-12 text-brand-outline group-hover:text-brand-primary transition-colors duration-200" />
-                    <p className="text-xs text-brand-on-surface-variant font-medium">
-                      Arraste e solte arquivos aqui ou <span className="text-brand-primary font-bold">navegue</span>
+                    <CloudUpload className="w-12 h-12 text-brand-outline group-hover:text-blue-600 transition-colors duration-200" />
+                    <p className="text-xs text-gray-900-variant font-medium">
+                      Arraste e solte arquivos aqui ou <span className="text-blue-600 font-bold">navegue</span>
                     </p>
                     <p className="text-[10px] text-brand-outline">
                       Suporta MP4, PNG, JPG (Máx 500MB)
@@ -850,7 +850,7 @@ export default function ContentView({
                     value={linkUrl}
                     onChange={(e) => handleLinkUrlChange(e.target.value)}
                     placeholder="Ex: https://entretenimento.r7.com/famosos-e-tv/ ou https://abrasel.com.br/noticias/"
-                    className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-4 py-2.5 text-xs text-brand-on-surface focus:ring-2 focus:ring-brand-primary focus:border-transparent focus:outline-none transition-all"
+                    className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-4 py-2.5 text-xs text-gray-900 focus:ring-2 focus:ring-brand-primary focus:border-transparent focus:outline-none transition-all"
                   />
                 </div>
 
@@ -862,8 +862,8 @@ export default function ContentView({
                       onClick={() => setLinkType('image')}
                       className={`px-3 py-2.5 border rounded-xl font-bold text-xs cursor-pointer transition-all ${
                         linkType === 'image'
-                          ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                          : 'border-brand-outline-variant hover:border-brand-outline text-brand-on-surface-variant'
+                          ? 'border-brand-primary bg-blue-50 text-blue-600'
+                          : 'border-brand-outline-variant hover:border-brand-outline text-gray-900-variant'
                       }`}
                     >
                       Imagem (.png, .jpg)
@@ -873,8 +873,8 @@ export default function ContentView({
                       onClick={() => setLinkType('video')}
                       className={`px-3 py-2.5 border rounded-xl font-bold text-xs cursor-pointer transition-all ${
                         linkType === 'video'
-                          ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                          : 'border-brand-outline-variant hover:border-brand-outline text-brand-on-surface-variant'
+                          ? 'border-brand-primary bg-blue-50 text-blue-600'
+                          : 'border-brand-outline-variant hover:border-brand-outline text-gray-900-variant'
                       }`}
                     >
                       Vídeo (.mp4)
@@ -884,8 +884,8 @@ export default function ContentView({
                       onClick={() => setLinkType('widget')}
                       className={`px-3 py-2.5 border rounded-xl font-bold text-xs cursor-pointer transition-all ${
                         linkType === 'widget'
-                          ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                          : 'border-brand-outline-variant hover:border-brand-outline text-brand-on-surface-variant'
+                          ? 'border-brand-primary bg-blue-50 text-blue-600'
+                          : 'border-brand-outline-variant hover:border-brand-outline text-gray-900-variant'
                       }`}
                     >
                       Widget / RSS Feed
@@ -899,12 +899,12 @@ export default function ContentView({
                     const isDirectFeed = linkUrl.includes('.xml') || linkUrl.includes('/rss') || linkUrl.includes('feed=');
                     if (isDirectFeed) return null;
                     return (
-                      <div className="p-3.5 bg-brand-primary/10 rounded-xl border border-brand-primary/20 text-xs text-brand-primary flex items-center gap-2.5 animate-in fade-in duration-300">
-                        <Sparkles className="w-4.5 h-4.5 text-brand-primary animate-pulse shrink-0" />
+                      <div className="p-3.5 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-600 flex items-center gap-2.5 animate-in fade-in duration-300">
+                        <Sparkles className="w-4.5 h-4.5 text-blue-600 animate-pulse shrink-0" />
                         <div>
-                          <span className="font-bold block text-brand-on-surface">✨ Conversor de Site em RSS Ativo!</span>
+                          <span className="font-bold block text-gray-900">✨ Conversor de Site em RSS Ativo!</span>
                           <p className="text-[11px] text-brand-outline mt-0.5 font-inter">
-                            Detectamos o site comum <strong className="text-brand-on-surface">{host}</strong>. Nosso motor do servidor extrairá de forma limpa apenas o <strong className="text-brand-on-surface">Título</strong> e a <strong className="text-brand-on-surface">Imagem</strong> de cada notícia de destaque em tempo real!
+                            Detectamos o site comum <strong className="text-gray-900">{host}</strong>. Nosso motor do servidor extrairá de forma limpa apenas o <strong className="text-gray-900">Título</strong> e a <strong className="text-gray-900">Imagem</strong> de cada notícia de destaque em tempo real!
                           </p>
                         </div>
                       </div>
@@ -914,15 +914,15 @@ export default function ContentView({
                   }
                 })()}
 
-                <div className="p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 text-xs text-brand-on-surface-variant space-y-2 font-inter leading-relaxed">
-                  <div className="flex items-center gap-1.5 font-bold font-geist text-brand-primary">
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200 text-xs text-gray-900-variant space-y-2 font-inter leading-relaxed">
+                  <div className="flex items-center gap-1.5 font-bold font-geist text-blue-600">
                     <Sparkles className="w-4 h-4" />
                     <span>Como funcionam os Links de Transmissão?</span>
                   </div>
                   <ul className="list-disc pl-4 space-y-1 text-xs text-brand-outline">
-                    <li><strong className="text-brand-on-surface">Imagem/Vídeo:</strong> Insira o link direto do arquivo hospedado na web (Dropbox, AWS, Drive público).</li>
-                    <li><strong className="text-brand-on-surface">Widgets:</strong> Suporta sites públicos, dashboards em tempo real, Google Slides ou relógios interativos.</li>
-                    <li><strong className="text-brand-on-surface">Feeds RSS:</strong> Insira qualquer feed de notícias em XML. Nosso reprodutor detectará automaticamente e criará uma apresentação de notícias polida, auto-atualizável e sem falhas CORS!</li>
+                    <li><strong className="text-gray-900">Imagem/Vídeo:</strong> Insira o link direto do arquivo hospedado na web (Dropbox, AWS, Drive público).</li>
+                    <li><strong className="text-gray-900">Widgets:</strong> Suporta sites públicos, dashboards em tempo real, Google Slides ou relógios interativos.</li>
+                    <li><strong className="text-gray-900">Feeds RSS:</strong> Insira qualquer feed de notícias em XML. Nosso reprodutor detectará automaticamente e criará uma apresentação de notícias polida, auto-atualizável e sem falhas CORS!</li>
                   </ul>
                 </div>
               </div>
@@ -935,7 +935,7 @@ export default function ContentView({
             <div className="col-span-full flex justify-end">
               <button 
                 type="submit"
-                className="bg-brand-primary text-brand-on-primary px-6 py-3 rounded-xl font-bold text-xs shadow-lg shadow-brand-primary/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer transition-all duration-150 flex items-center gap-2"
+                className="bg-blue-600 text-brand-on-primary px-6 py-3 rounded-xl font-bold text-xs shadow-lg shadow-brand-primary/10 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer transition-all duration-150 flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>{uploadTab === 'link' && linkType === 'widget' ? 'Pré-visualizar & Editar Feed RSS' : 'Adicionar à Playlist'}</span>
@@ -950,8 +950,8 @@ export default function ContentView({
       <div className="lg:col-span-4 space-y-6">
         
         {/* Dropbox Link Converter */}
-        <div className="glass-card rounded-2xl overflow-hidden border border-brand-outline-variant/40 shadow-xl">
-          <div className="p-5 bg-brand-primary-container/10 border-b border-brand-outline-variant/30">
+        <div className="glass-card rounded-2xl overflow-hidden border border-gray-200 40 shadow-xl">
+          <div className="p-5 bg-blue-600-container/10 border-b border-gray-200 30">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#0061ff] rounded-xl flex items-center justify-center shadow-md">
                 <svg fill="white" height="20" viewBox="0 0 24 24" width="20">
@@ -959,7 +959,7 @@ export default function ContentView({
                 </svg>
               </div>
               <div>
-                <h3 className="font-geist text-sm font-bold text-brand-on-surface">Conversor Dropbox</h3>
+                <h3 className="font-geist text-sm font-bold text-gray-900">Conversor Dropbox</h3>
                 <p className="text-[10px] text-brand-outline mt-0.5">Converta links de compartilhamento em downloads diretos</p>
               </div>
             </div>
@@ -973,14 +973,14 @@ export default function ContentView({
                 value={dropboxUrl}
                 onChange={(e) => setDropboxUrl(e.target.value)}
                 placeholder="https://www.dropbox.com/s/..."
-                className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-brand-on-surface focus:ring-2 focus:ring-brand-primary focus:outline-none transition-all"
+                className="w-full bg-brand-surface-lowest border border-brand-outline-variant rounded-xl px-3 py-2 text-xs text-gray-900 focus:ring-2 focus:ring-brand-primary focus:outline-none transition-all"
               />
             </div>
 
             <button 
               onClick={convertDropboxLink}
               disabled={isConverting || !dropboxUrl.trim()}
-              className="w-full py-2.5 border border-brand-primary text-brand-primary rounded-xl font-bold text-xs hover:bg-brand-primary/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+              className="w-full py-2.5 border border-brand-primary text-blue-600 rounded-xl font-bold text-xs hover:bg-blue-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isConverting ? 'animate-spin' : ''}`} />
               <span>{isConverting ? 'Convertendo...' : 'Gerar Link Direto'}</span>
@@ -994,15 +994,15 @@ export default function ContentView({
                     type="text" 
                     readOnly 
                     value={convertedUrl}
-                    className="bg-transparent border-none p-0 text-xs text-brand-secondary font-mono-data truncate flex-1 focus:outline-none"
+                    className="bg-transparent border-none p-0 text-xs text-pink-600 font-mono-data truncate flex-1 focus:outline-none"
                   />
                   <button 
                     onClick={copyToClipboard}
-                    className="text-brand-primary p-1 hover:bg-brand-surface-variant rounded-md cursor-pointer"
+                    className="text-blue-600 p-1 hover:bg-brand-surface-variant rounded-md cursor-pointer"
                     title="Copiar para área de transferência"
                   >
                     {isCopied ? (
-                      <span className="text-[10px] text-brand-secondary font-bold">Copiado!</span>
+                      <span className="text-[10px] text-pink-600 font-bold">Copiado!</span>
                     ) : (
                       <Copy className="w-3.5 h-3.5" />
                     )}
@@ -1013,98 +1013,22 @@ export default function ContentView({
           </div>
         </div>
 
-        {/* Live Monitoring Dashboard Module */}
-        <div className="glass-card p-5 rounded-2xl border border-brand-outline-variant/40 shadow-xl">
-          <h3 className="font-geist text-sm font-bold text-brand-on-surface mb-3.5">Monitoramento ao Vivo</h3>
-          
-          <div className="aspect-video bg-black rounded-xl relative overflow-hidden border border-brand-outline-variant/60 group shadow-inner">
-            {currentMedia ? (
-              <div className="w-full h-full relative">
-                {currentMedia.type === 'video' ? (
-                  <video 
-                    src={currentMedia.url} 
-                    className="w-full h-full object-cover" 
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline 
-                    onCanPlay={(e) => {
-                      e.currentTarget.muted = true;
-                      e.currentTarget.play().catch(err => console.log("Autoplay monitor:", err));
-                    }}
-                  />
-                ) : currentMedia.type === 'widget' ? (
-                  <WidgetRenderer 
-                    url={currentMedia.url} 
-                    name={currentMedia.name} 
-                    items={currentMedia.items}
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <img 
-                    src={currentMedia.url} 
-                    alt="Pré-visualização de reprodução ao vivo" 
-                    className="w-full h-full object-cover" 
-                    referrerPolicy="no-referrer"
-                  />
-                )}
-                {currentMedia.type !== 'widget' && (
-                  <div className="absolute inset-0 bg-black/30 pointer-events-none flex items-center justify-center">
-                    <Play className="w-10 h-10 text-white/50 group-hover:scale-110 transition-transform duration-300" />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Play className="text-white/40 w-10 h-10" />
-              </div>
-            )}
 
-            <div className="absolute bottom-2.5 left-2.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-md text-[9px] text-white font-bold flex items-center gap-1.5 shadow-md">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
-              <span className="font-geist uppercase tracking-wider">NYC-TIME-SQUARE-01</span>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-brand-on-surface-variant font-medium">Carga de CPU</span>
-              <div className="flex items-center gap-3">
-                <div className="w-24 h-1.5 bg-brand-surface-container rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-brand-primary transition-all duration-1000" 
-                    style={{ width: `${cpuLoad}%` }}
-                  ></div>
-                </div>
-                <span className="font-mono-data font-bold text-brand-on-surface text-[11px] w-8 text-right">
-                  {cpuLoad}%
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-brand-on-surface-variant font-medium">Velocidade de Banda</span>
-              <span className="text-brand-on-surface font-bold font-mono-data">
-                {bandwidth} Mbps
-              </span>
-            </div>
-          </div>
-        </div>
 
         {/* Support Help Card */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-brand-primary/10 to-transparent border border-brand-primary/20 flex flex-col justify-between">
+        <div className="p-5 rounded-2xl border border-blue-200 flex flex-col justify-between">
           <div>
-            <h4 className="font-geist text-sm font-bold text-brand-primary mb-1 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-brand-primary" />
+            <h4 className="font-geist text-sm font-bold text-blue-600 mb-1 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-blue-600" />
               <span>Precisa de Ajuda?</span>
             </h4>
-            <p className="text-xs text-brand-on-surface-variant leading-relaxed">
+            <p className="text-xs text-gray-900-variant leading-relaxed">
               Agende uma sessão técnica com um Arquiteto de Sinalização para otimizar suas entregas de playlists de vídeo de alto volume.
             </p>
           </div>
           <button 
             onClick={() => alert('Parabéns! Nosso arquiteto entrará em contato por e-mail em instantes.')}
-            className="text-brand-primary text-xs font-bold flex items-center gap-1.5 hover:translate-x-1.5 transition-transform duration-200 mt-4 cursor-pointer text-left focus:outline-none"
+            className="text-blue-600 text-xs font-bold flex items-center gap-1.5 hover:translate-x-1.5 transition-transform duration-200 mt-4 cursor-pointer text-left focus:outline-none"
           >
             <span>Agendar um Workshop</span> 
             <ArrowRight className="w-4 h-4" />
@@ -1116,22 +1040,22 @@ export default function ContentView({
       {/* RSS Preview & Edit Modal */}
       {isPreviewModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
-          <div className="bg-[#121424] border border-white/15 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-[#121424] border border-gray-200 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-white/10 flex justify-between items-center bg-black/40">
+            <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-black/40">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-primary/20 border border-brand-primary/40 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-brand-primary animate-pulse" />
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-blue-600 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="font-montserrat font-bold text-base text-white">Pré-visualizar & Editar Feed RSS</h3>
-                  <p className="text-xs text-white/50 font-inter truncate max-w-md">{linkUrl}</p>
+                  <h3 className="font-montserrat font-bold text-base text-gray-900">Pré-visualizar & Editar Feed RSS</h3>
+                  <p className="text-xs text-gray-500 font-inter truncate max-w-md">{linkUrl}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsPreviewModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-50 text-gray-900 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -1141,8 +1065,8 @@ export default function ContentView({
             <div className="p-6 md:p-8 overflow-y-auto space-y-6 flex-1">
               {previewLoading ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
-                  <RefreshCw className="w-10 h-10 text-brand-primary animate-spin" />
-                  <p className="font-montserrat font-bold text-white text-sm">Analisando e convertendo RSS em tempo real...</p>
+                  <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
+                  <p className="font-montserrat font-bold text-gray-900 text-sm">Analisando e convertendo RSS em tempo real...</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -1150,15 +1074,15 @@ export default function ContentView({
                   {/* Left: Live Widget Preview mimicking WidgetRenderer */}
                   <div className="lg:col-span-7 space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider font-montserrat">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider font-montserrat">
                         Visualização na Tela (Background + Gradiente)
                       </span>
-                      <span className="text-[10px] font-mono-data text-white/40">
+                      <span className="text-[10px] font-mono-data text-gray-500">
                         Item {activePreviewIndex + 1} de {previewItems.length}
                       </span>
                     </div>
 
-                    <div className="w-full aspect-[16/9] rounded-2xl overflow-hidden relative shadow-2xl border border-white/20 bg-slate-950 flex flex-col justify-between p-6">
+                    <div className="w-full aspect-[16/9] rounded-2xl overflow-hidden relative shadow-2xl border border-gray-200 bg-slate-950 flex flex-col justify-between p-6">
                       {/* Background Image */}
                       {previewItems[activePreviewIndex]?.thumbnail ? (
                         <div className="absolute inset-0 z-0">
@@ -1168,14 +1092,14 @@ export default function ContentView({
                             className="w-full h-full object-cover scale-105"
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/30" />
+                          <div className="absolute inset-0" />
                         </div>
                       ) : (
-                        <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 to-indigo-950" />
+                        <div className="absolute inset-0 z-0" />
                       )}
 
                       {/* Top Bar */}
-                      <div className="relative z-10 flex justify-between items-center bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-white/10">
+                      <div className="relative z-10 flex justify-between items-center bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200">
                         <span className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider font-montserrat">
                           {mediaName || 'Feed de Notícias'}
                         </span>
@@ -1185,19 +1109,19 @@ export default function ContentView({
                       {/* Content */}
                       <div className="relative z-10 my-auto py-2 space-y-2">
                         {(previewItems[activePreviewIndex]?.showTitle !== false) && (
-                          <h2 className="text-lg md:text-xl font-black font-montserrat text-white leading-snug drop-shadow">
+                          <h2 className="text-lg md:text-xl font-black font-montserrat text-gray-900 leading-snug drop-shadow">
                             {previewItems[activePreviewIndex]?.title}
                           </h2>
                         )}
                         {(previewItems[activePreviewIndex]?.showDescription !== false) && (
-                          <p className="text-xs text-white/90 font-inter line-clamp-2 drop-shadow">
+                          <p className="text-xs text-gray-500 font-inter line-clamp-2 drop-shadow">
                             {previewItems[activePreviewIndex]?.description}
                           </p>
                         )}
                       </div>
 
                       {/* Footer Dots */}
-                      <div className="relative z-10 flex justify-between items-center text-[10px] text-white/60 pt-2 border-t border-white/10">
+                      <div className="relative z-10 flex justify-between items-center text-[10px] text-gray-500 pt-2 border-t border-gray-200">
                         <span>Atualização Automática</span>
                         <div className="flex gap-1">
                           {previewItems.map((_, idx) => (
@@ -1205,7 +1129,7 @@ export default function ContentView({
                               key={idx}
                               type="button"
                               onClick={() => setActivePreviewIndex(idx)}
-                              className={`w-1.5 h-1.5 rounded-full ${idx === activePreviewIndex ? 'bg-[#f59e0b] w-3' : 'bg-white/30'}`}
+                              className={`w-1.5 h-1.5 rounded-full ${idx === activePreviewIndex ? 'bg-[#f59e0b] w-3' : 'bg-gray-50'}`}
                             />
                           ))}
                         </div>
@@ -1216,7 +1140,7 @@ export default function ContentView({
                   {/* Right: Editable Feed Items List & Current Item Editor */}
                   <div className="lg:col-span-5 space-y-4">
                     <div className="flex justify-between items-center">
-                      <h4 className="font-montserrat font-bold text-xs text-white uppercase tracking-wider">
+                      <h4 className="font-montserrat font-bold text-xs text-gray-900 uppercase tracking-wider">
                         Matérias Extraídas ({previewItems.length})
                       </h4>
                       <button
@@ -1233,7 +1157,7 @@ export default function ContentView({
                           ]);
                           setActivePreviewIndex(previewItems.length);
                         }}
-                        className="text-[10px] text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/20 border border-brand-primary/30 px-2 py-1 rounded-lg font-bold transition-all cursor-pointer"
+                        className="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg font-bold transition-all cursor-pointer"
                       >
                         + Adicionar Slide
                       </button>
@@ -1246,8 +1170,8 @@ export default function ContentView({
                           onClick={() => setActivePreviewIndex(idx)}
                           className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
                             idx === activePreviewIndex 
-                              ? 'bg-brand-primary/15 border-brand-primary text-white shadow' 
-                              : 'bg-black/20 border-white/10 text-white/70 hover:bg-black/40'
+                              ? 'bg-blue-50 border-brand-primary text-gray-900 shadow' 
+                              : 'bg-black/20 border-gray-200 text-gray-500 hover:bg-black/40'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate">
@@ -1265,7 +1189,7 @@ export default function ContentView({
                                   setActivePreviewIndex(updated.length - 1);
                                 }
                               }}
-                              className="text-white/40 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition-colors"
+                              className="text-gray-500 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition-colors"
                               title="Remover slide"
                             >
                               ✕
@@ -1277,15 +1201,15 @@ export default function ContentView({
 
                     {/* Detailed Editor for Active Slide */}
                     {previewItems[activePreviewIndex] && (
-                      <div className="p-4 bg-black/40 border border-white/10 rounded-2xl space-y-3">
+                      <div className="p-4 bg-black/40 border border-gray-200 rounded-2xl space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">
+                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
                             Editando Slide #{activePreviewIndex + 1}
                           </span>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-white/60 font-semibold uppercase">Título da Matéria</label>
+                          <label className="text-[10px] text-gray-500 font-semibold uppercase">Título da Matéria</label>
                           <input 
                             type="text"
                             value={previewItems[activePreviewIndex].title}
@@ -1294,12 +1218,12 @@ export default function ContentView({
                               updated[activePreviewIndex].title = e.target.value;
                               setPreviewItems(updated);
                             }}
-                            className="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-primary"
+                            className="w-full bg-slate-900 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-brand-primary"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-white/60 font-semibold uppercase">Descrição / Resumo</label>
+                          <label className="text-[10px] text-gray-500 font-semibold uppercase">Descrição / Resumo</label>
                           <textarea 
                             rows={2}
                             value={previewItems[activePreviewIndex].description}
@@ -1308,12 +1232,12 @@ export default function ContentView({
                               updated[activePreviewIndex].description = e.target.value;
                               setPreviewItems(updated);
                             }}
-                            className="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-primary resize-none"
+                            className="w-full bg-slate-900 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-brand-primary resize-none"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] text-white/60 font-semibold uppercase">URL da Imagem de Fundo</label>
+                          <label className="text-[10px] text-gray-500 font-semibold uppercase">URL da Imagem de Fundo</label>
                           <input 
                             type="url"
                             value={previewItems[activePreviewIndex].thumbnail || ''}
@@ -1323,13 +1247,13 @@ export default function ContentView({
                               setPreviewItems(updated);
                             }}
                             placeholder="https://exemplo.com/imagem.jpg"
-                            className="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-primary"
+                            className="w-full bg-slate-900 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-brand-primary"
                           />
                         </div>
 
                         {/* Display toggles */}
-                        <div className="flex items-center gap-4 pt-2 border-t border-white/10">
-                          <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer select-none">
+                        <div className="flex items-center gap-4 pt-2 border-t border-gray-200">
+                          <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none">
                             <input 
                               type="checkbox"
                               checked={previewItems[activePreviewIndex].showTitle !== false}
@@ -1338,12 +1262,12 @@ export default function ContentView({
                                 updated[activePreviewIndex].showTitle = e.target.checked;
                                 setPreviewItems(updated);
                               }}
-                              className="rounded border-white/20 bg-slate-900 text-brand-primary w-4 h-4 focus:ring-0 cursor-pointer"
+                              className="rounded border-gray-200 bg-slate-900 text-blue-600 w-4 h-4 focus:ring-0 cursor-pointer"
                             />
                             <span className="font-medium">Título da Matéria</span>
                           </label>
 
-                          <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer select-none">
+                          <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none">
                             <input 
                               type="checkbox"
                               checked={previewItems[activePreviewIndex].showDescription !== false}
@@ -1352,7 +1276,7 @@ export default function ContentView({
                                 updated[activePreviewIndex].showDescription = e.target.checked;
                                 setPreviewItems(updated);
                               }}
-                              className="rounded border-white/20 bg-slate-900 text-brand-primary w-4 h-4 focus:ring-0 cursor-pointer"
+                              className="rounded border-gray-200 bg-slate-900 text-blue-600 w-4 h-4 focus:ring-0 cursor-pointer"
                             />
                             <span className="font-medium">Descrição / Resumo</span>
                           </label>
@@ -1366,18 +1290,18 @@ export default function ContentView({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-black/50 border-t border-white/10 flex justify-end gap-3">
+            <div className="px-6 py-4 bg-black/50 border-t border-gray-200 flex justify-end gap-3">
               <button 
                 type="button"
                 onClick={() => setIsPreviewModalOpen(false)}
-                className="px-5 py-2.5 rounded-xl border border-white/20 text-white text-xs font-bold hover:bg-white/10 cursor-pointer transition-all"
+                className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-xs font-bold hover:bg-gray-50 cursor-pointer transition-all"
               >
                 Voltar e Ajustar
               </button>
               <button 
                 type="button"
                 onClick={confirmAddRssFeed}
-                className="px-6 py-2.5 rounded-xl bg-brand-primary text-brand-on-primary text-xs font-bold shadow-lg hover:-translate-y-0.5 cursor-pointer transition-all"
+                className="px-6 py-2.5 rounded-xl bg-blue-600 text-brand-on-primary text-xs font-bold shadow-lg hover:-translate-y-0.5 cursor-pointer transition-all"
               >
                 Confirmar e Adicionar à Playlist
               </button>

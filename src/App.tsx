@@ -91,23 +91,6 @@ export default function App() {
     }
   }, [isTvBoxMode]);
 
-  const [layoutTheme, setLayoutTheme] = useState<'modern' | 'light'>(() => {
-    const saved = safeLocalStorage.getItem('layout_theme');
-    if (saved) return saved as 'modern' | 'light';
-    return isTvBoxMode ? 'light' : 'modern';
-  });
-
-  useEffect(() => {
-    safeLocalStorage.setItem('layout_theme', layoutTheme);
-    if (layoutTheme === 'light') {
-      document.documentElement.classList.remove('theme-modern');
-      document.documentElement.classList.add('theme-light');
-    } else {
-      document.documentElement.classList.remove('theme-light');
-      document.documentElement.classList.add('theme-modern');
-    }
-  }, [layoutTheme]);
-
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return safeLocalStorage.getItem('sidebar_collapsed') === 'true';
   });
@@ -131,7 +114,7 @@ export default function App() {
     return saved;
   });
 
-  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean, newTheme?: 'modern' | 'light') => {
+  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean) => {
     let cleanUrl = newUrl.trim();
     if (cleanUrl.endsWith('/')) {
       cleanUrl = cleanUrl.slice(0, -1);
@@ -141,10 +124,6 @@ export default function App() {
     
     safeLocalStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
     setIsTvBoxMode(enableTvBoxMode);
-    
-    if (newTheme) {
-      setLayoutTheme(newTheme);
-    }
     
     showToast('Configurações salvas com sucesso.');
     setIsSettingsOpen(false);
@@ -630,16 +609,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen ${layoutTheme === 'light' ? 'theme-light bg-[#f1f5f9] text-[#1e293b]' : 'theme-modern bg-[#090618] text-[#ffffff]'} flex flex-col font-inter relative overflow-hidden`}>
-      
-      {/* Mesh Gradient Accents */}
-      {!isTvBoxMode && layoutTheme !== 'light' && (
-        <>
-          <div className="absolute top-[-10%] right-[-15%] w-[600px] h-[600px] rounded-full blur-[140px] bg-pink-500/15 pointer-events-none z-0" />
-          <div className="absolute bottom-[-10%] left-[5%] w-[550px] h-[550px] rounded-full blur-[130px] bg-blue-400/15 pointer-events-none z-0" />
-          <div className="absolute top-[35%] left-[45%] w-[450px] h-[450px] rounded-full blur-[145px] bg-purple-600/10 pointer-events-none z-0" />
-        </>
-      )}
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col md:flex-row font-sans relative overflow-hidden">
       
       {/* Sidebar Navigation */}
       {isMobileSidebarOpen && (
@@ -667,31 +637,31 @@ export default function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Header Controller */}
-      <Header 
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeSubTab={activeSubTab}
-        setActiveSubTab={setActiveSubTab}
-        onDeployAll={handleDeployAll}
-        onOpenSimulator={() => handleOpenSimulator()}
-        logsCount={logs.length}
-        onMenuClick={() => setIsMobileSidebarOpen(true)}
-        isSidebarCollapsed={isSidebarCollapsed}
-      />
-
       {/* Main Screen Content Frame */}
-      <main className={`p-4 md:p-10 min-h-[calc(100vh-64px)] bg-transparent relative z-10 transition-all duration-300 ${
-        isSidebarCollapsed ? 'lg:ml-[112px]' : 'lg:ml-[312px]'
-      } ml-0`}>
-        {renderActiveView()}
-      </main>
+      <div className={`flex-1 flex flex-col w-full h-screen overflow-hidden relative z-10 transition-all duration-300 ${isSidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[280px]'}`}>
+        {/* Main Header Controller */}
+        <Header 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          activeSubTab={activeSubTab}
+          setActiveSubTab={setActiveSubTab}
+          onDeployAll={handleDeployAll}
+          onOpenSimulator={() => handleOpenSimulator()}
+          logsCount={logs.length}
+          onMenuClick={() => setIsMobileSidebarOpen(true)}
+          isSidebarCollapsed={isSidebarCollapsed}
+        />
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 transition-all duration-300">
+          {renderActiveView()}
+        </main>
+      </div>
 
       {/* Toast Overlay */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-brand-surface-highest border border-brand-outline-variant/60 px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 backdrop-blur-md">
-          <div className="w-2.5 h-2.5 bg-brand-secondary rounded-full status-pulse"></div>
-          <span className="text-xs font-bold text-brand-on-surface font-geist tracking-wide">
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="w-2.5 h-2.5 bg-green-500 rounded-full status-pulse"></div>
+          <span className="text-sm font-medium tracking-wide">
             {toastMessage}
           </span>
         </div>
@@ -708,19 +678,19 @@ export default function App() {
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-lg bg-[#14102c] border border-white/10 rounded-[28px] p-6 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-xl p-6 shadow-xl relative">
             <button 
               onClick={() => setIsSettingsOpen(false)}
-              className="absolute top-5 right-5 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all cursor-pointer"
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 p-2 rounded-lg transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-lg font-bold text-white mb-2 font-geist flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-blue-600" />
               <span>Configurações do Sistema</span>
             </h3>
-            <p className="text-xs text-white/60 mb-6">
+            <p className="text-sm text-gray-500 mb-6">
               Gerencie a integração do back-end para as funcionalidades dinâmicas em produção.
             </p>
             
@@ -729,11 +699,10 @@ export default function App() {
               const formData = new FormData(e.currentTarget);
               const urlVal = formData.get('backendUrl') as string;
               const tvBoxVal = formData.get('tvBoxMode') === 'on';
-              const themeVal = formData.get('layoutTheme') as 'modern' | 'light';
-              handleSaveSettings(urlVal, tvBoxVal, themeVal);
+              handleSaveSettings(urlVal, tvBoxVal);
             }} className="space-y-4">
               <div>
-                <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-2 font-geist">
+                <label className="block text-sm font-bold text-gray-700 tracking-wider mb-2">
                   URL da API de Integração (Conversor RSS/Sites)
                 </label>
                 <input 
@@ -742,60 +711,43 @@ export default function App() {
                   defaultValue={backendUrl}
                   required
                   placeholder="https://exemplo-api.fly.dev"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono"
                 />
-                <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
+                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
                   Necessário para buscar conteúdos de sites e convertê-los em slides (Web Scraping). Por padrão, utiliza o servidor do Google Cloud Run temporário.
                 </p>
               </div>
 
-              <div className="border-t border-white/10 pt-4">
-                <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-2 font-geist">
-                  Tema do Painel (Layout)
-                </label>
-                <select 
-                  name="layoutTheme"
-                  defaultValue={layoutTheme}
-                  className="w-full bg-[#1c183a] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-sans"
-                >
-                  <option value="light">☀️ Layout Leve (Claro - Altamente Recomendado para TVs)</option>
-                  <option value="modern">🌙 Layout Moderno (Escuro)</option>
-                </select>
-                <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
-                  O Layout Leve utiliza cores de alto contraste com fundo claro e desativa blurs de CSS experimentais, garantindo compatibilidade absoluta com qualquer TV Box ou Webview antiga.
-                </p>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
+              <div className="border-t border-gray-200 pt-4">
                 <label className="flex items-start gap-3 cursor-pointer select-none group">
                   <input 
                     type="checkbox"
                     name="tvBoxMode"
                     defaultChecked={isTvBoxMode}
-                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-0 focus:ring-offset-0 mt-0.5"
+                    className="w-4 h-4 rounded border-gray-300 bg-white text-blue-600 focus:ring-blue-500 mt-0.5"
                   />
                   <div>
-                    <span className="block text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                    <span className="block text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                       Modo TV Box & Desempenho
                     </span>
-                    <span className="block text-[10px] text-white/50 leading-relaxed mt-0.5">
+                    <span className="block text-xs text-gray-500 leading-relaxed mt-0.5">
                       Desativa filtros CSS pesados (blur de fundo) e acelera o carregamento geral. Recomendado para TV Boxes, tablets ou dispositivos com hardware mais limitado.
                     </span>
                   </div>
                 </label>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-white/10">
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white/80 hover:bg-white/5 transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-xs font-bold text-white shadow-lg hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-blue-600 text-sm font-bold text-white shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer"
                 >
                   Salvar Configurações
                 </button>

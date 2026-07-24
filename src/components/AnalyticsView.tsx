@@ -40,49 +40,49 @@ export default function AnalyticsView() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div>
-        <h2 className="font-geist text-xl font-bold text-white">Telemetria e Logs de Sinalização</h2>
-        <p className="text-xs text-white/50 mt-0.5">Curvas de integridade em tempo real, sensores de hardware e estatísticas de despacho em nuvem</p>
+        <h2 className="font-geist text-xl font-bold text-gray-900">Telemetria e Logs de Sinalização</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Curvas de integridade em tempo real, sensores de hardware e estatísticas de despacho em nuvem</p>
       </div>
 
       {/* Analytics Bento Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="p-5 glass-card border border-white/10 flex items-center gap-4">
+        <div className="p-5 glass-card border border-gray-200 flex items-center gap-4">
           <div className="w-10 h-10 bg-indigo-500/10 text-indigo-200 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/15">
             <Wifi className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold font-geist">Latência Média</p>
-            <p className="text-lg font-bold font-geist text-white mt-0.5">42 ms</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold font-geist">Latência Média</p>
+            <p className="text-lg font-bold font-geist text-gray-900 mt-0.5">42 ms</p>
           </div>
         </div>
 
-        <div className="p-5 glass-card border border-white/10 flex items-center gap-4">
+        <div className="p-5 glass-card border border-gray-200 flex items-center gap-4">
           <div className="w-10 h-10 bg-pink-500/10 text-pink-300 rounded-xl flex items-center justify-center shrink-0 border border-pink-500/15">
             <Activity className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold font-geist">Uptime da Rede</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold font-geist">Uptime da Rede</p>
             <p className="text-lg font-bold font-geist text-pink-300 mt-0.5">98.92%</p>
           </div>
         </div>
 
-        <div className="p-5 glass-card border border-white/10 flex items-center gap-4">
+        <div className="p-5 glass-card border border-gray-200 flex items-center gap-4">
           <div className="w-10 h-10 bg-amber-500/10 text-amber-300 rounded-xl flex items-center justify-center shrink-0 border border-amber-500/15">
             <Cpu className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold font-geist">Média de CPU</p>
-            <p className="text-lg font-bold font-geist text-white mt-0.5">24.5%</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold font-geist">Média de CPU</p>
+            <p className="text-lg font-bold font-geist text-gray-900 mt-0.5">24.5%</p>
           </div>
         </div>
 
-        <div className="p-5 glass-card border border-white/10 flex items-center gap-4">
+        <div className="p-5 glass-card border border-gray-200 flex items-center gap-4">
           <div className="w-10 h-10 bg-indigo-500/10 text-indigo-200 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/15">
             <HardDrive className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold font-geist">Espaço Usado</p>
-            <p className="text-lg font-bold font-geist text-white mt-0.5">142.4 GB</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold font-geist">Espaço Usado</p>
+            <p className="text-lg font-bold font-geist text-gray-900 mt-0.5">142.4 GB</p>
           </div>
         </div>
       </div>
@@ -91,10 +91,10 @@ export default function AnalyticsView() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Bandwidth Usage Area Chart */}
-        <div className="glass-card p-5 rounded-2xl border border-white/15 shadow-xl">
+        <div className="glass-card p-5 rounded-2xl border border-gray-200 shadow-xl">
           <div className="flex items-center gap-2 mb-4">
             <Wifi className="w-4.5 h-4.5 text-indigo-300" />
-            <h3 className="font-geist text-sm font-bold text-white">Histórico de Uso de Banda (Mbps)</h3>
+            <h3 className="font-geist text-sm font-bold text-gray-900">Histórico de Uso de Banda (Mbps)</h3>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -124,10 +124,10 @@ export default function AnalyticsView() {
         </div>
 
         {/* Uptime Bar Chart */}
-        <div className="glass-card p-5 rounded-2xl border border-white/15 shadow-xl">
+        <div className="glass-card p-5 rounded-2xl border border-gray-200 shadow-xl">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4.5 h-4.5 text-pink-300" />
-            <h3 className="font-geist text-sm font-bold text-white">Uptime Semanal da Rede %</h3>
+            <h3 className="font-geist text-sm font-bold text-gray-900">Uptime Semanal da Rede %</h3>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

@@ -91,7 +91,7 @@ export default function LivePlayerModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black z-50 flex flex-col justify-between overflow-hidden text-white font-inter select-none cursor-pointer"
+      className="fixed inset-0 bg-black z-50 flex flex-col justify-between overflow-hidden text-gray-900 font-inter select-none cursor-pointer"
       onClick={() => {
         // Optional: click to exit or just view clean
       }}
@@ -143,7 +143,7 @@ export default function LivePlayerModal({
           )
         ) : (
           <div className="text-center space-y-4">
-            <Minimize2 className="w-16 h-16 text-brand-primary animate-pulse mx-auto" />
+            <Minimize2 className="w-16 h-16 text-blue-600 animate-pulse mx-auto" />
             <p className="text-brand-outline font-geist text-sm">CARREGANDO PRÉ-VISUALIZAÇÃO...</p>
           </div>
         )}
@@ -151,9 +151,9 @@ export default function LivePlayerModal({
 
       {/* Top Floating Overlay - Only Clock */}
       <div className="relative z-10 w-full p-6 flex justify-end items-center pointer-events-none">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 bg-black/60 border border-white/15 rounded-xl text-sm font-mono-data backdrop-blur-md shadow-2xl pointer-events-auto">
-          <Clock className="w-4 h-4 text-brand-primary" />
-          <span className="font-bold text-white tracking-wider">{timeStr}</span>
+        <div className="flex items-center gap-2 px-3.5 py-1.5 bg-black/60 border border-gray-200 rounded-xl text-sm font-mono-data backdrop-blur-md shadow-2xl pointer-events-auto">
+          <Clock className="w-4 h-4 text-blue-600" />
+          <span className="font-bold text-gray-900 tracking-wider">{timeStr}</span>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export default function LivePlayerModal({
         {/* Subtle exit hint on hover */}
         <button 
           onClick={onClose}
-          className="pointer-events-auto opacity-0 hover:opacity-100 transition-opacity px-3 py-1.5 bg-black/60 hover:bg-red-600/80 rounded-lg text-xs font-semibold text-white/80 hover:text-white backdrop-blur-md border border-white/10"
+          className="pointer-events-auto opacity-0 hover:opacity-100 transition-opacity px-3 py-1.5 bg-black/60 hover:bg-red-600/80 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-900 backdrop-blur-md border border-gray-200"
           title="Pressione ESC para Sair"
         >
           ✕ Sair da Tela Cheia (ESC)

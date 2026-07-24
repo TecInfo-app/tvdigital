@@ -175,8 +175,8 @@ export default function WidgetRenderer({ url, name, className = "", items: items
           referrerPolicy="no-referrer"
         />
         {/* Subtle watermark to show it's an embedded interactive display */}
-        <div className="absolute top-4 right-4 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[10px] font-bold text-white/80 pointer-events-none flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 bg-brand-primary rounded-full animate-ping"></span>
+        <div className="absolute top-4 right-4 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-500 pointer-events-none flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping"></span>
           <span>WIDGET ATIVO: {name.toUpperCase()}</span>
         </div>
       </div>
@@ -188,11 +188,11 @@ export default function WidgetRenderer({ url, name, className = "", items: items
 
   if (isLoading) {
     return (
-      <div className={`w-full h-full relative overflow-hidden bg-gradient-to-br from-[#0f111a] via-[#151829] to-[#0a0b12] flex flex-col items-center justify-center text-white p-12 select-none ${className}`}>
+      <div className={`w-full h-full relative overflow-hidden flex flex-col items-center justify-center text-gray-900 p-12 select-none ${className}`}>
         <div className="flex flex-col items-center gap-4 text-center animate-pulse">
-          <RefreshCw className="w-10 h-10 text-brand-primary animate-spin" />
-          <h3 className="font-montserrat font-bold text-lg text-white">Sincronizando Feed</h3>
-          <p className="font-inter text-xs text-white/50 max-w-xs leading-relaxed">
+          <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
+          <h3 className="font-montserrat font-bold text-lg text-gray-900">Sincronizando Feed</h3>
+          <p className="font-inter text-xs text-gray-500 max-w-xs leading-relaxed">
             Coletando notícias de destaque e convertendo imagens em tempo real para a sua tela.
           </p>
         </div>
@@ -201,7 +201,7 @@ export default function WidgetRenderer({ url, name, className = "", items: items
   }
 
   return (
-    <div className={`w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between text-white p-8 md:p-14 select-none ${className}`}>
+    <div className={`w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between text-gray-900 p-8 md:p-14 select-none ${className}`}>
       
       {/* Background Image filling the entire container */}
       {currentItem?.thumbnail ? (
@@ -213,28 +213,28 @@ export default function WidgetRenderer({ url, name, className = "", items: items
             referrerPolicy="no-referrer"
           />
           {/* Smooth dark gradient overlay for optimal text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/30" />
+          <div className="absolute inset-0" />
         </div>
       ) : (
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+        <div className="absolute inset-0 z-0" />
       )}
 
       {/* Central News Content overlaid on background image */}
       <div className="relative z-10 my-auto py-12 px-6 md:px-16 space-y-4 max-w-5xl animate-in fade-in duration-500">
         {currentItem?.pubDate && (
-          <span className="inline-block bg-black/40 backdrop-blur-md border border-white/20 text-white/80 font-mono-data text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
+          <span className="inline-block bg-black/40 backdrop-blur-md border border-gray-200 text-gray-500 font-mono-data text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
             {currentItem.pubDate}
           </span>
         )}
 
         {(currentItem?.showTitle !== false) && (
-          <h1 className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
+          <h1 className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-gray-900 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
             {currentItem?.title || 'Buscando matérias do feed...'}
           </h1>
         )}
 
         {(currentItem?.showDescription !== false) && (
-          <p className="font-inter text-sm md:text-base lg:text-lg text-white/95 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] pt-2">
+          <p className="font-inter text-sm md:text-base lg:text-lg text-gray-500 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] pt-2">
             {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
           </p>
         )}

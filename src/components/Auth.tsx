@@ -67,20 +67,20 @@ export default function Auth({ onSuccess }: AuthProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1c1242] to-[#0d0921] text-brand-on-surface flex items-center justify-center p-6 relative overflow-hidden font-inter">
+    <div className="min-h-screen text-gray-900 flex items-center justify-center p-6 relative overflow-hidden font-inter">
       {/* Background Orbs */}
       <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full blur-[120px] bg-pink-500/10 pointer-events-none z-0" />
       <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full blur-[120px] bg-blue-500/10 pointer-events-none z-0" />
 
-      <div className="w-full max-w-md bg-[#161033]/80 border border-brand-outline-variant/30 rounded-3xl p-8 md:p-10 shadow-2xl backdrop-blur-xl relative z-10 flex flex-col gap-6">
+      <div className="w-full max-w-md bg-[#161033]/80 border border-gray-200 30 rounded-3xl p-8 md:p-10 shadow-2xl backdrop-blur-xl relative z-10 flex flex-col gap-6">
         {/* Logo and Intro */}
         <div className="flex flex-col items-center text-center gap-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-primary to-purple-500 flex items-center justify-center shadow-lg shadow-brand-primary/20">
-            <Tv className="w-7 h-7 text-white" />
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-primary/20">
+            <Tv className="w-7 h-7 text-gray-900" />
           </div>
           <div className="flex items-center gap-1.5 mt-2">
-            <span className="text-xl font-black tracking-tight font-geist text-white">FAST<span className="text-brand-primary">PLAYER</span></span>
-            <Sparkles className="w-4 h-4 text-brand-secondary animate-pulse" />
+            <span className="text-xl font-black tracking-tight font-geist text-gray-900">FAST<span className="text-blue-600">PLAYER</span></span>
+            <Sparkles className="w-4 h-4 text-pink-600 animate-pulse" />
           </div>
           <p className="text-xs font-semibold text-brand-outline mt-1 font-geist uppercase tracking-widest">
             Sinalização Digital Inteligente
@@ -96,14 +96,14 @@ export default function Auth({ onSuccess }: AuthProps) {
         )}
 
         {/* Tab Selector */}
-        <div className="flex bg-[#0d0921]/60 p-1.5 rounded-2xl border border-brand-outline-variant/15">
+        <div className="flex bg-[#0d0921]/60 p-1.5 rounded-2xl border border-gray-200 15">
           <button
             type="button"
             onClick={() => { setIsSignUp(false); setError(''); }}
             className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
               !isSignUp 
-                ? 'bg-brand-primary text-brand-on-primary shadow-sm' 
-                : 'text-brand-outline hover:text-brand-on-surface'
+                ? 'bg-blue-600 text-brand-on-primary shadow-sm' 
+                : 'text-brand-outline hover:text-gray-900'
             }`}
           >
             Entrar
@@ -113,8 +113,8 @@ export default function Auth({ onSuccess }: AuthProps) {
             onClick={() => { setIsSignUp(true); setError(''); }}
             className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
               isSignUp 
-                ? 'bg-brand-primary text-brand-on-primary shadow-sm' 
-                : 'text-brand-outline hover:text-brand-on-surface'
+                ? 'bg-blue-600 text-brand-on-primary shadow-sm' 
+                : 'text-brand-outline hover:text-gray-900'
             }`}
           >
             Cadastrar
@@ -135,7 +135,7 @@ export default function Auth({ onSuccess }: AuthProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@empresa.com"
-                className="w-full bg-[#0d0921]/50 border border-brand-outline-variant/30 rounded-xl pl-11 pr-4 py-3 text-xs text-brand-on-surface placeholder:text-brand-outline/40 focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                className="w-full bg-[#0d0921]/50 border border-gray-200 30 rounded-xl pl-11 pr-4 py-3 text-xs text-gray-900 placeholder:text-brand-outline/40 focus:ring-1 focus:ring-brand-primary focus:outline-none"
               />
             </div>
           </div>
@@ -152,7 +152,7 @@ export default function Auth({ onSuccess }: AuthProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="******"
-                className="w-full bg-[#0d0921]/50 border border-brand-outline-variant/30 rounded-xl pl-11 pr-4 py-3 text-xs text-brand-on-surface placeholder:text-brand-outline/40 focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                className="w-full bg-[#0d0921]/50 border border-gray-200 30 rounded-xl pl-11 pr-4 py-3 text-xs text-gray-900 placeholder:text-brand-outline/40 focus:ring-1 focus:ring-brand-primary focus:outline-none"
               />
             </div>
           </div>
@@ -160,7 +160,7 @@ export default function Auth({ onSuccess }: AuthProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-brand-primary text-brand-on-primary font-bold text-xs py-3.5 rounded-xl hover:opacity-95 transition-all shadow-md shadow-brand-primary/10 flex items-center justify-center gap-2 cursor-pointer mt-2 disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full bg-blue-600 text-brand-on-primary font-bold text-xs py-3.5 rounded-xl hover:opacity-95 transition-all shadow-md shadow-brand-primary/10 flex items-center justify-center gap-2 cursor-pointer mt-2 disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -185,7 +185,7 @@ export default function Auth({ onSuccess }: AuthProps) {
           type="button"
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full bg-brand-surface-lowest border border-brand-outline-variant hover:border-brand-primary text-brand-on-surface font-bold text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+          className="w-full bg-brand-surface-lowest border border-brand-outline-variant hover:border-brand-primary text-gray-900 font-bold text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
