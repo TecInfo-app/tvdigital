@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, doc, getDocs, writeBatch, getDocFromServer } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, handleFirestoreError, OperationType, cleanUndefined } from './firebase';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -81,22 +81,22 @@ export default function App() {
             
             INITIAL_MEDIA_ITEMS.forEach((item) => {
               const docRef = doc(db, 'users', uid, 'media_items', item.id);
-              batch.set(docRef, { ...item, userId: uid });
+              batch.set(docRef, cleanUndefined({ ...item, userId: uid }));
             });
             
             INITIAL_PLAYERS.forEach((player) => {
               const docRef = doc(db, 'users', uid, 'players', player.id);
-              batch.set(docRef, { ...player, userId: uid });
+              batch.set(docRef, cleanUndefined({ ...player, userId: uid }));
             });
             
             INITIAL_PLAYLISTS.forEach((pl) => {
               const docRef = doc(db, 'users', uid, 'playlists', pl.id);
-              batch.set(docRef, { ...pl, userId: uid });
+              batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
             });
             
             INITIAL_LOGS.forEach((log) => {
               const docRef = doc(db, 'users', uid, 'logs', log.id);
-              batch.set(docRef, { ...log, userId: uid });
+              batch.set(docRef, cleanUndefined({ ...log, userId: uid }));
             });
             
             await batch.commit();
@@ -162,7 +162,7 @@ export default function App() {
 
       nextItems.forEach((item) => {
         const docRef = doc(db, 'users', uid, 'media_items', item.id);
-        batch.set(docRef, { ...item, userId: uid });
+        batch.set(docRef, cleanUndefined({ ...item, userId: uid }));
       });
       
       await batch.commit();
@@ -189,7 +189,7 @@ export default function App() {
 
       nextPlayers.forEach((p) => {
         const docRef = doc(db, 'users', uid, 'players', p.id);
-        batch.set(docRef, { ...p, userId: uid });
+        batch.set(docRef, cleanUndefined({ ...p, userId: uid }));
       });
 
       await batch.commit();
@@ -216,7 +216,7 @@ export default function App() {
 
       nextPlaylists.forEach((pl) => {
         const docRef = doc(db, 'users', uid, 'playlists', pl.id);
-        batch.set(docRef, { ...pl, userId: uid });
+        batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
       });
 
       await batch.commit();
@@ -243,7 +243,7 @@ export default function App() {
 
       nextLogs.forEach((l) => {
         const docRef = doc(db, 'users', uid, 'logs', l.id);
-        batch.set(docRef, { ...l, userId: uid });
+        batch.set(docRef, cleanUndefined({ ...l, userId: uid }));
       });
 
       await batch.commit();
