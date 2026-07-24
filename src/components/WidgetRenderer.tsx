@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, AlertCircle, RefreshCw, Radio, Sparkles } from 'lucide-react';
 import { getApiUrl } from '../firebase';
+import { clientSideScrape } from '../utils/scraper';
 
 interface WidgetRendererProps {
   url: string;
@@ -111,28 +112,45 @@ export default function WidgetRenderer({ url, name, className = "", items: items
           if (data.feed && data.feed.title) {
             setFeedTitle(data.feed.title);
           }
+          setIsLoading(false);
         } else {
-          // Fallback to itemsProp if available, otherwise local simulation
-          if (itemsProp && itemsProp.length > 0) {
-            setItems(itemsProp);
-            setFeedTitle(name);
-          } else {
-            setItems(SIMULATED_FEEDS);
-            setFeedTitle(`${name} (Demonstração)`);
-          }
+          throw new Error("Dados inválidos do backend");
         }
-        setIsLoading(false);
       })
       .catch((err) => {
-        console.warn('RSS Feed Fetch CORS or Error. Falling back:', err);
-        if (itemsProp && itemsProp.length > 0) {
-          setItems(itemsProp);
-          setFeedTitle(name);
-        } else {
-          setItems(SIMULATED_FEEDS);
-          setFeedTitle(`${name} (Modo Offline)`);
-        }
-        setIsLoading(false);
+        console.warn('Backend API RSS failed, attempting browser client-side scraping fallback:', err);
+        
+        // Dynamic client-side web scraper fallback via public CORS proxies
+        clientSideScrape(targetUrl)
+          .then((data) => {
+            if (data.status === 'ok' && data.items && data.items.length > 0) {
+              const parsedItems = data.items.map((item: any) => ({
+                title: item.title || "",
+                description: item.description?.replace(/<[^>]*>/g, '') || "",
+                pubDate: item.pubDate || "Recente",
+                link: item.link || "#",
+                thumbnail: item.thumbnail || ""
+              }));
+              setItems(parsedItems);
+              if (data.feed && data.feed.title) {
+                setFeedTitle(data.feed.title);
+              }
+            } else {
+              throw new Error("Scraper client-side also failed to parse items");
+            }
+            setIsLoading(false);
+          })
+          .catch((scrapeErr) => {
+            console.error('All scrape attempts failed (Backend & Client-side):', scrapeErr);
+            if (itemsProp && itemsProp.length > 0) {
+              setItems(itemsProp);
+              setFeedTitle(name);
+            } else {
+              setItems(SIMULATED_FEEDS);
+              setFeedTitle(`${name} (Modo Offline)`);
+            }
+            setIsLoading(false);
+          });
       });
   }, [url, name, isRss, itemsProp]);
 

@@ -29,6 +29,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MediaItem } from '../types';
 import WidgetRenderer from './WidgetRenderer';
 import { getApiUrl } from '../firebase';
+import { clientSideScrape } from '../utils/scraper';
 
 interface ContentViewProps {
   mediaItems: MediaItem[];
@@ -96,18 +97,38 @@ export default function ContentView({
     if (isPreviewModalOpen && linkUrl.trim()) {
       setPreviewLoading(true);
       setActivePreviewIndex(0);
-      const apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(linkUrl.trim())}`);
+      const targetUrl = linkUrl.trim();
+      const apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(targetUrl)}`);
+      
       fetch(apiUrl)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error("Backend offline or blocked");
+          return res.json();
+        })
         .then(data => {
           if (data.status === 'ok' && data.items && data.items.length > 0) {
             setPreviewItems(data.items);
             setActivePreviewIndex(0);
+            setPreviewLoading(false);
+          } else {
+            throw new Error("Invalid backend data");
           }
-          setPreviewLoading(false);
         })
-        .catch(() => {
-          setPreviewLoading(false);
+        .catch((err) => {
+          console.warn("[Scrape API Fallback] API failed, attempting client-side scraping...", err);
+          // Fallback to client side scraper via free CORS proxies
+          clientSideScrape(targetUrl)
+            .then(data => {
+              if (data.status === 'ok' && data.items && data.items.length > 0) {
+                setPreviewItems(data.items);
+                setActivePreviewIndex(0);
+              }
+              setPreviewLoading(false);
+            })
+            .catch((scrapeErr) => {
+              console.error("[Scrape Fallback Error] All methods failed:", scrapeErr);
+              setPreviewLoading(false);
+            });
         });
     }
   }, [isPreviewModalOpen, linkUrl]);
