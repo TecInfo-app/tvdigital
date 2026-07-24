@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastPlayer Pro v28.0 - Full Edition</title>
+    <style>
+        :root { --primary: #2563eb; --success: #10b981; --dark: #0f172a; --gray: #f8fafc; --accent: #6366f1; --danger: #ef4444; --edit: #f59e0b; }
+        body { font-family: 'Inter', sans-serif; margin: 0; background: #f1f5f9; color: #1e293b; overflow-x: hidden; }
+        .screen { display: none; min-height: 100vh; width: 100vw; }
+        .active { display: flex; flex-direction: column; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; }
+        .btn { padding: 14px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; width: 100%; margin-bottom: 10px; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-accent { background: var(--accent); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-edit { background: var(--edit); color: white; }
+        
+        .days-selector { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 10px; }
+        .day-option { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; }
+        .day-option input { width: auto; margin: 0; }
+
+        #toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 15px 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; z-index: 10000; animation: slideIn 0.5s forwards; }
+        @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .media-item { display: grid; grid-template-columns: 60px 1fr auto; align-items: center; padding: 12px; background: white; margin-bottom: 8px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .order-controls { display: flex; flex-direction: column; gap: 2px; }
+        .btn-order { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px; cursor: pointer; font-size: 12px; }
+        
+        .media-info { padding-left: 10px; overflow: hidden; }
+        .media-name { font-weight: 600; font-size: 14px; color: #334155; }
+        .media-desc { font-size: 11px; color: #64748b; line-height: 1.4; display: block; margin-top: 3px; }
+
+        #player { background: #000; position: fixed; top: 0; left: 0; z-index: 9999; height: 100vh; width: 100vw; }
+        #displayArea { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        #displayArea img, #displayArea video, #displayArea iframe { width: 100%; height: 100%; object-fit: contain; border: none; background: #000; }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Operação realizada!</div>
+
+    <div id="login" class="screen">
+        <div style="display:flex; justify-content:center; align-items:center; height:100vh; background:var(--dark);">
+            <div style="background:white; padding:40px; border-radius:24px; width:340px;">
+                <h2 style="text-align:center;">FastPlayer 🔐</h2>
+                <input type="email" id="email" placeholder="Seu E-mail">
+                <input type="password" id="pass" placeholder="Sua Senha">
+                <button class="btn btn-primary" onclick="window.handleLogin()">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="menu" class="screen">
+        <div class="container">
+            <div class="card" style="background: var(--dark); color: white; text-align: center;">
+                <h1 style="margin-bottom:5px;">Painel Cloud</h1>
+                <p id="userMail" style="font-size:12px; opacity:0.7; margin-bottom:20px;"></p>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <button class="btn btn-primary" onclick="window.show('config')">⚙️ Playlist</button>
+                    <button class="btn btn-success" onclick="window.startPlayer()">▶️ Iniciar TV</button>
+                    <button class="btn btn-accent" onclick="window.show('report')">📊 Relatórios</button>
+                    <button class="btn btn-danger" onclick="window.handleLogout()">Sair</button>
+                </div>
+            </div>
+
+            <div class="card" style="border: 2px dashed var(--accent);">
+                <h3>🔗 Conversor Dropbox</h3>
+                <input type="text" id="dropIn" placeholder="Cole o link dl=0 aqui...">
+                <button class="btn btn-accent" onclick="window.convertDrop()">Converter</button>
+                <div id="dropOutArea" style="display:none; margin-top:10px; background: #f0f4ff; padding: 15px; border-radius: 10px;">
+                    <div id="dropOutLink" style="font-size:11px; word-break:break-all; font-weight:bold; margin-bottom:10px; color:var(--accent);"></div>
+                    <button class="btn" style="background:#334155; color:white; font-size:12px; padding:8px;" onclick="window.copyConvertedLink()">📋 Copiar Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="report" class="screen">
+        <div class="container">
+            <button onclick="window.show('menu')" class="btn" style="background:#ddd; width:auto; margin-bottom:15px;">⬅ Voltar</button>
+            <div class="card">
+                <h2>Relatório de Exibição</h2>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; align-items: flex-end;">
+                    <div><small>De:</small><input type="date" id="repStart"></div>
+                    <div><small>Até:</small><input type="date" id="repEnd"></div>
+                    <button class="btn btn-primary" onclick="window.generateReport()" style="margin:0; height:45px;">Filtrar</button>
+                </div>
+                <div id="reportResult" style="margin-top:20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="config" class="screen">
+        <div class="container">
+            <button onclick="window.show('menu')" class="btn" style="background:#ddd; width:auto; margin-bottom:15px;">⬅ Menu Principal</button>
+            <div class="card" id="formCard">
+                <h2 id="formTitle">Nova Mídia</h2>
+                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
+                    <input type="text" id="propName" placeholder="Nome da Mídia">
+                    <input type="number" id="propDuration" placeholder="Tempo (seg)">
+                </div>
+
+                <label style="font-size: 11px; font-weight: bold; color: var(--primary);">Dias de Exibição:</label>
+                <div class="days-selector">
+                    <label class="day-option"><input type="checkbox" class="day-check" value="0" checked> Dom</label>
+                    <label class="day-option"><input type="checkbox" class="day-check" value="1" checked> Seg</label>
+                    <label class="day-option"><input type="checkbox" class="day-check" value="2" checked> Ter</label>
+                    <label class="day-option"><input type="checkbox" class="day-check" value="3" checked> Qua</label>
+                    <label class="day-option"><input type="checkbox" class="day-check" value="4" checked> Qui</label>
+                    <label class="day-option"><input type="checkbox" class="day-check" value="5" checked> Sex</label>
+                    <label class="day-option"><input type="checkbox" class="day-check" value="6" checked> Sáb</label>
+                </div>
+                
+                <select id="inputType" onchange="window.updateForm()">
+                    <option value="video_url">URL de Vídeo (Dropbox)</option>
+                    <option value="img_url">URL de Imagem (Dropbox)</option>
+                    <option value="widget">Widget / Site</option>
+                    <option value="upload_video">Upload Local VÍDEO</option>
+                    <option value="upload_img">Upload Local IMAGEM</option>
+                </select>
+
+                <div id="divLink"><input type="url" id="propUrl" placeholder="https://..."></div>
+                <div id="divFile" style="display:none;"><input type="file" id="fileInput"></div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><small>Data Início:</small><input type="datetime-local" id="start"></div>
+                    <div><small>Data Fim:</small><input type="datetime-local" id="end"></div>
+                </div>
+
+                <button class="btn btn-success" id="btnSave" onclick="window.handleSave()">Salvar Mídia</button>
+                <button class="btn btn-danger" id="btnCancel" style="display:none;" onclick="window.resetForm()">Cancelar Edição</button>
+            </div>
+            <div id="mediaList"></div>
+        </div>
+    </div>
+
+    <div id="player" class="screen"><div id="displayArea"></div></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, where, updateDoc, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBRi-46l3LtTDY1lXLlhOImDiGVwfNKk5U",
+            authDomain: "fastplayer-f116c.firebaseapp.com",
+            projectId: "fastplayer-f116c",
+            storageBucket: "fastplayer-f116c.firebasestorage.app",
+            messagingSenderId: "1069215413731",
+            appId: "1:1069215413731:web:a6f054930a15fd73a6dcd6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let playlist = [];
+        let editingId = null;
+        let convertedLink = "";
+
+        onAuthStateChanged(auth, user => {
+            if (user) { document.getElementById('userMail').innerText = user.email; window.show('menu'); monitorar(user.uid); } 
+            else { window.show('login'); }
+        });
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.style.display = 'block';
+            setTimeout(() => { t.style.display = 'none'; }, 3000);
+        }
+
+        window.handleLogin = () => {
+            signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('pass').value).catch(e => alert("Erro login"));
+        };
+        window.handleLogout = () => confirm("Sair?") && signOut(auth);
+
+        window.convertDrop = () => {
+            let link = document.getElementById('dropIn').value;
+            if(!link.includes('dropbox.com')) return alert("Link Inválido");
+            convertedLink = link.replace('dl=0', 'raw=1');
+            document.getElementById('dropOutArea').style.display = "block";
+            document.getElementById('dropOutLink').innerText = convertedLink;
+            showToast("Convertido!");
+        };
+        window.copyConvertedLink = () => navigator.clipboard.writeText(convertedLink).then(() => showToast("Copiado!"));
+
+        window.updateForm = () => {
+            const val = document.getElementById('inputType').value;
+            document.getElementById('divFile').style.display = val.startsWith('upload') ? 'block' : 'none';
+            document.getElementById('divLink').style.display = val.startsWith('upload') ? 'none' : 'block';
+        };
+
+        window.handleSave = async () => {
+            const name = document.getElementById('propName').value;
+            if(!name) return alert("Insira o nome");
+            const type = document.getElementById('inputType').value;
+            const duration = parseInt(document.getElementById('propDuration').value) || null;
+            const start = document.getElementById('start').value;
+            const end = document.getElementById('end').value;
+            const days = Array.from(document.querySelectorAll('.day-check:checked')).map(cb => parseInt(cb.value));
+            let content = document.getElementById('propUrl').value;
+
+            if(type.startsWith('upload')) {
+                const file = document.getElementById('fileInput').files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = async () => await finaliza(name, reader.result, type, duration, start, end, days);
+                    reader.readAsDataURL(file);
+                    return;
+                }
+            }
+            await finaliza(name, content, type, duration, start, end, days);
+        };
+
+        async function finaliza(name, content, type, duration, start, end, days) {
+            if(editingId) {
+                await updateDoc(doc(db, "playlist", editingId), { name, content, type, duration, start, end, days });
+                showToast("Alterações salvas!");
+            } else {
+                const order = playlist.length > 0 ? Math.max(...playlist.map(i => i.order || 0)) + 1 : 1;
+                await addDoc(collection(db, "playlist"), { name, content, type, order, start, end, userId: auth.currentUser.uid, duration, days });
+                showToast("Mídia salva!");
+            }
+            window.resetForm();
+        }
+
+        window.resetForm = () => {
+            editingId = null;
+            document.getElementById('formTitle').innerText = "Nova Mídia";
+            document.getElementById('btnSave').innerText = "Salvar Mídia";
+            document.getElementById('btnCancel').style.display = "none";
+            document.getElementById('propName').value = "";
+            document.getElementById('propDuration').value = "";
+            document.getElementById('propUrl').value = "";
+            document.getElementById('start').value = "";
+            document.getElementById('end').value = "";
+            document.getElementById('fileInput').value = "";
+            document.querySelectorAll('.day-check').forEach(cb => cb.checked = true);
+        };
+
+        function monitorar(uid) {
+            const q = query(collection(db, "playlist"), where("userId", "==", uid));
+            onSnapshot(q, (snap) => {
+                playlist = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.order || 0) - (b.order || 0));
+                const listEl = document.getElementById('mediaList');
+                listEl.innerHTML = "";
+                playlist.forEach((item, index) => {
+                    // Localize dentro de monitorar(uid) -> playlist.forEach
+const nomesDias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+let desc = (item.days && item.days.length < 7) ? 
+    "📅 " + item.days.map(d => nomesDias[d]).join(", ") : 
+    "📅 Todos os dias";
+
+if(item.start || item.end) desc += ` | 🕒 Agendado`;
+if(item.duration) desc += ` | ⏱️ ${item.duration}s`;
+
+listEl.innerHTML += `
+    <div class="media-item">
+        <div class="order-controls">
+            <button class="btn-order" onclick="window.reorder(${index}, -1)">▲</button>
+            <button class="btn-order" onclick="window.reorder(${index}, 1)">▼</button>
+        </div>
+        <div class="media-info" style="padding-left:10px;">
+            <div class="media-name" style="font-weight:bold;">${item.name}</div>
+            <div class="media-desc" style="font-size:11px; color:#666;">${desc}</div>
+        </div>
+        <div>
+            <button onclick="window.editItem('${item.id}')" style="color:var(--edit); border:none; background:none; cursor:pointer;">Editar</button>
+            <button onclick="window.deleteItem('${item.id}')" style="color:red; border:none; background:none; cursor:pointer; margin-left:10px;">&times;</button>
+        </div>
+    </div>`;
+                });
+            });
+        }
+
+        window.reorder = async (idx, dir) => {
+    const target = idx + dir;
+    if(target < 0 || target >= playlist.length) return;
+    
+    const current = playlist[idx];
+    const next = playlist[target];
+    
+    // CORREÇÃO: Se as ordens forem iguais ou inválidas, recalcula a sequência para destravar
+    if (current.order === next.order || !current.order || !next.order) {
+        console.log("Corrigindo numeração de ordem travada...");
+        for (let i = 0; i < playlist.length; i++) {
+            await updateDoc(doc(db, "playlist", playlist[i].id), { order: i + 1 });
+        }
+        return showToast("Lista desalinhada. Ajustada! Clique novamente.");
+    }
+    
+    // Troca normal de posições caso a numeração esteja correta
+    const oldOrder = current.order;
+    await updateDoc(doc(db, "playlist", current.id), { order: next.order });
+    await updateDoc(doc(db, "playlist", next.id), { order: oldOrder });
+};
+
+window.editItem = (id) => {
+    const item = playlist.find(i => i.id === id);
+    editingId = id;
+    document.getElementById('propName').value = item.name;
+    document.getElementById('propDuration').value = item.duration || "";
+    document.getElementById('inputType').value = item.type;
+    document.getElementById('propUrl').value = item.content || "";
+    document.getElementById('formTitle').innerText = "Editando";
+    document.getElementById('btnCancel').style.display = "block";
+    window.updateForm();
+    window.scrollTo(0,0);
+};
+
+        window.deleteItem = (id) => confirm("Excluir?") && deleteDoc(doc(db, "playlist", id));
+
+        window.generateReport = async () => {
+    const sVal = document.getElementById('repStart').value, eVal = document.getElementById('repEnd').value;
+    if(!sVal || !eVal) return alert("Por favor, selecione as datas!");
+    
+    const resDiv = document.getElementById('reportResult');
+    resDiv.innerHTML = "<p style='color: #2563eb; font-weight: bold;'>Buscando no banco de dados...</p>";
+    
+    const sDate = new Date(sVal + "T00:00:00").getTime(), eDate = new Date(eVal + "T23:59:59").getTime();
+    
+    try {
+        const q = query(collection(db, "logs"), where("userId", "==", auth.currentUser.uid));
+        const snap = await getDocs(q);
+        
+        const stats = {};
+        let temDados = false;
+
+        snap.forEach(d => { 
+            const dataLog = d.data();
+            
+            if (!dataLog || !dataLog.timestamp || !dataLog.mediaName) return; 
+
+            if(dataLog.timestamp >= sDate && dataLog.timestamp <= eDate) {
+                const n = dataLog.mediaName; 
+                stats[n] = (stats[n] || 0) + 1; 
+                temDados = true;
+            }
+        });
+        
+        if(!temDados) {
+            resDiv.innerHTML = `
+                <div style="background: #f1f5f9; padding: 15px; border-radius: 10px; color: #64748b; text-align: center; margin-top: 15px;">
+                    Nenhuma mídia passou nas TVs nesse período selecionado.
+                </div>`;
+            return;
+        }
+
+        // Monta a estrutura com a Barra de Busca inclusa
+        let htmlResultado = `
+            <h3 style='margin-top: 20px; font-size: 16px; color: #1e293b;'>📊 Resumo de Exibições:</h3>
+            <input type="text" id="buscaRelatorio" placeholder="🔍 Digite para pesquisar uma propaganda..." 
+                   oninput="window.filtrarListaRelatorio()" 
+                   style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box;">
+            <div id="listaPropagandasContainer">
+        `;
+
+        for(let n in stats) { 
+            htmlResultado += `
+                <div class="item-relatorio-busca" data-nome="${n.toLowerCase()}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; margin-bottom: 8px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                    <span style="font-weight: 600; color: #334155;">📺 ${n}</span>
+                    <span style="background: #2563eb; color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 12px;">
+                        ${stats[n]}x
+                    </span>
+                </div>`;
+        }
+
+        htmlResultado += `</div>`; 
+        resDiv.innerHTML = htmlResultado;
+
+    } catch (erro) {
+        console.error("Erro no relatório:", erro);
+        resDiv.innerHTML = "<p style='color:red; font-weight:bold;'>⚠️ Erro de Permissão: Ajuste as Regras no Painel do Firebase.</p>";
+    }
+};
+
+// Nova função mecânica da busca (roda enquanto você digita)
+window.filtrarListaRelatorio = () => {
+    const termoBusca = document.getElementById('buscaRelatorio').value.toLowerCase();
+    const itens = document.querySelectorAll('.item-relatorio-busca');
+
+    itens.forEach(item => {
+        const nomePropaganda = item.getAttribute('data-nome');
+        if (nomePropaganda.includes(termoBusca)) {
+            item.style.display = "flex";
+        } else {
+            item.style.display = "none";
+        }
+    });
+};
+
+// --- PLAYER ---
+let playIdx = 0, timer;
+window.startPlayer = () => { 
+    if(!playlist.length) return alert("Vazio!"); 
+    window.show('player'); 
+    loop(); 
+};
+
+async function loop() {
+    clearTimeout(timer);
+    if(playIdx >= playlist.length) playIdx = 0;
+    const item = playlist[playIdx];
+    const agora = new Date();
+
+    const foraHorario = (item.start && agora < new Date(item.start)) || (item.end && agora > new Date(item.end));
+    const diaErrado = item.days && item.days.length > 0 && !item.days.includes(agora.getDay());
+
+    if(foraHorario || diaErrado) { 
+        playIdx++; 
+        return loop(); 
+    }
+
+    addDoc(collection(db, "logs"), { mediaName: item.name, timestamp: Date.now(), userId: auth.currentUser.uid });
+
+    const area = document.getElementById('displayArea');
+    area.innerHTML = "";
+    const proxima = () => { playIdx++; loop(); };
+    let t = (item.duration || (item.type === 'widget' ? 40 : 10)) * 1000;
+
+    if(item.type.includes('video')) {
+        const v = document.createElement('video'); 
+        v.src = item.content; 
+        v.autoplay = true; 
+        v.muted = true; 
+        v.setAttribute('playsinline',''); 
+        
+        v.onended = proxima; 
+        v.onerror = proxima;
+        
+        area.appendChild(v); 
+    } else if(item.type === 'widget') {
+        const f = document.createElement('iframe'); 
+        f.src = item.content; 
+        area.appendChild(f); 
+        timer = setTimeout(proxima, t);
+    } else {
+        const i = new Image(); 
+        i.src = item.content; 
+        i.onload = () => { timer = setTimeout(proxima, t); }; 
+        i.onerror = proxima; 
+        area.appendChild(i);
+    }
+}
+
+window.show = (id) => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+};
+    </script>
+</body>
+</html>
