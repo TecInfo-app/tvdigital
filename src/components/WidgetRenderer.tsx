@@ -70,13 +70,6 @@ export default function WidgetRenderer({ url, name, className = "", items: items
   );
 
   useEffect(() => {
-    if (itemsProp && itemsProp.length > 0) {
-      setItems(itemsProp);
-      setFeedTitle(name);
-      setIsLoading(false);
-      return;
-    }
-
     if (!isRss) return;
 
     setIsLoading(true);
@@ -118,19 +111,29 @@ export default function WidgetRenderer({ url, name, className = "", items: items
             setFeedTitle(data.feed.title);
           }
         } else {
-          // Fallback to local simulation
-          setItems(SIMULATED_FEEDS);
-          setFeedTitle(`${name} (Demonstração)`);
+          // Fallback to itemsProp if available, otherwise local simulation
+          if (itemsProp && itemsProp.length > 0) {
+            setItems(itemsProp);
+            setFeedTitle(name);
+          } else {
+            setItems(SIMULATED_FEEDS);
+            setFeedTitle(`${name} (Demonstração)`);
+          }
         }
         setIsLoading(false);
       })
       .catch((err) => {
-        console.warn('RSS Feed Fetch CORS or Error. Falling back to local simulation:', err);
-        setItems(SIMULATED_FEEDS);
-        setFeedTitle(`${name} (Modo Offline)`);
+        console.warn('RSS Feed Fetch CORS or Error. Falling back:', err);
+        if (itemsProp && itemsProp.length > 0) {
+          setItems(itemsProp);
+          setFeedTitle(name);
+        } else {
+          setItems(SIMULATED_FEEDS);
+          setFeedTitle(`${name} (Modo Offline)`);
+        }
         setIsLoading(false);
       });
-  }, [url, name, isRss]);
+  }, [url, name, isRss, itemsProp]);
 
   // Slideshow interval for RSS news articles
   useEffect(() => {

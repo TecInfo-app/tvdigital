@@ -94,12 +94,14 @@ export default function ContentView({
   useEffect(() => {
     if (isPreviewModalOpen && linkUrl.trim()) {
       setPreviewLoading(true);
+      setActivePreviewIndex(0);
       const apiUrl = `/api/scrape-rss?url=${encodeURIComponent(linkUrl.trim())}`;
       fetch(apiUrl)
         .then(res => res.json())
         .then(data => {
           if (data.status === 'ok' && data.items && data.items.length > 0) {
             setPreviewItems(data.items);
+            setActivePreviewIndex(0);
           }
           setPreviewLoading(false);
         })
@@ -129,11 +131,9 @@ export default function ContentView({
         return;
       }
       setUploadError('');
+      setPreviewItems([]);
       setIsPreviewModalOpen(true);
       setPreviewLoading(true);
-      setTimeout(() => {
-        setPreviewLoading(false);
-      }, 500);
       return;
     }
     handleAddMediaSubmit(e);
