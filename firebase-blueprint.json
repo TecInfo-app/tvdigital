@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "MediaItem": {
+      "title": "MediaItem",
+      "description": "A media asset inside the signage system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "duration": { "type": "integer" },
+        "schedule": { "type": "string" },
+        "type": { "type": "string", "enum": ["video", "image", "widget"] },
+        "active": { "type": "boolean" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "url", "duration", "schedule", "type", "active", "userId"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "A terminal player/screen controller",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["online", "offline", "warning"] },
+        "currentMediaId": { "type": "string" },
+        "resolution": { "type": "string" },
+        "ip": { "type": "string" },
+        "lastSync": { "type": "string" },
+        "cpu": { "type": "integer" },
+        "bandwidth": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "status", "resolution", "ip", "lastSync", "cpu", "bandwidth", "userId"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "A group of media items to be played",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "itemIds": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "itemIds", "isActive", "userId"]
+    },
+    "LogEntry": {
+      "title": "LogEntry",
+      "description": "An operational log event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "time": { "type": "string" },
+        "player": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "action", "time", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/media_items/{itemId}": {
+      "schema": "MediaItem",
+      "description": "User specific media assets"
+    },
+    "/users/{userId}/players/{playerId}": {
+      "schema": "Player",
+      "description": "User specific signage players"
+    },
+    "/users/{userId}/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "User specific playlists"
+    },
+    "/users/{userId}/logs/{logId}": {
+      "schema": "LogEntry",
+      "description": "User specific action logs"
+    }
+  }
+}

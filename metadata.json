@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: FastPlayer Pro",
+  "description": "Uma plataforma profissional de gerenciamento de sinalização digital (Digital Signage OS) com controle de playlists, monitoramento em tempo real, analytics e um conversor inteligente de sites comuns em feeds RSS com imagens e títulos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
