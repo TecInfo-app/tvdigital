@@ -329,7 +329,21 @@ export default function ContentView({
         setUploadError('Por favor, insira a URL do link.');
         return;
       }
-      itemUrl = linkUrl.trim();
+      let finalUrl = linkUrl.trim();
+      if (finalUrl.includes('dropbox.com')) {
+        finalUrl = finalUrl
+          .replace(/([a-zA-Z0-9-]+\.)?dropbox\.com/, 'dl.dropboxusercontent.com')
+          .replace('?dl=0', '')
+          .replace('?dl=1', '');
+        if (!finalUrl.includes('raw=1')) {
+          if (finalUrl.includes('?')) {
+            finalUrl += '&raw=1';
+          } else {
+            finalUrl += '?raw=1';
+          }
+        }
+      }
+      itemUrl = finalUrl;
       fileType = linkType;
     }
 
@@ -1014,6 +1028,10 @@ export default function ContentView({
                     muted 
                     loop 
                     playsInline 
+                    onCanPlay={(e) => {
+                      e.currentTarget.muted = true;
+                      e.currentTarget.play().catch(err => console.log("Autoplay monitor:", err));
+                    }}
                   />
                 ) : currentMedia.type === 'widget' ? (
                   <WidgetRenderer 

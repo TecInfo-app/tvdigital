@@ -52,6 +52,29 @@ export default function App() {
 
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTvBoxMode, setIsTvBoxMode] = useState(() => {
+    const saved = localStorage.getItem('tv_box_mode');
+    if (saved !== null) return saved === 'true';
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase();
+      const isTv = ua.includes('smarttv') || ua.includes('tvbox') || ua.includes('tv-box') || 
+                   ua.includes('appletv') || ua.includes('dtv') || ua.includes('boxee') || 
+                   ua.includes('roku') || ua.includes('googletv') || ua.includes('mibox') || 
+                   ua.includes('xiaomi') || ua.includes('firetv') || ua.includes('firestick') ||
+                   ua.includes('android tv') || ua.includes('webos') || ua.includes('tizen');
+      return isTv;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isTvBoxMode) {
+      document.documentElement.classList.add('tv-box-performance');
+    } else {
+      document.documentElement.classList.remove('tv-box-performance');
+    }
+  }, [isTvBoxMode]);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebar_collapsed') === 'true';
   });
@@ -75,18 +98,19 @@ export default function App() {
     return saved;
   });
 
-  const handleSaveSettings = (newUrl: string) => {
+  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean) => {
     let cleanUrl = newUrl.trim();
     if (cleanUrl.endsWith('/')) {
       cleanUrl = cleanUrl.slice(0, -1);
     }
     localStorage.setItem('backend_api_url', cleanUrl);
     setBackendUrl(cleanUrl);
-    showToast('Configurações salvas. Atualizando aplicativo...');
+    
+    localStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
+    setIsTvBoxMode(enableTvBoxMode);
+    
+    showToast('Configurações salvas com sucesso.');
     setIsSettingsOpen(false);
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
   };
 
   // Verify connection to Firestore on initial boot
@@ -110,63 +134,114 @@ export default function App() {
       if (currentUser) {
         setLoadingData(true);
         const uid = currentUser.uid;
-        try {
-          const mediaRef = collection(db, 'users', uid, 'media_items');
-          const mediaSnap = await getDocs(mediaRef);
+        
+        let didTimeOutOrResolve = false;
+
+        // Set a 3.5s timeout for TV Box/WebView stability
+        const timeoutId = setTimeout(() => {
+          if (didTimeOutOrResolve) return;
+          didTimeOutOrResolve = true;
+          console.warn("[App Load] Firebase firestore load timed out. Loading from localStorage or defaults...");
           
-          if (mediaSnap.empty) {
-            // Seed default data into Firestore for the first-time user
-            const batch = writeBatch(db);
-            
-            INITIAL_MEDIA_ITEMS.forEach((item) => {
-              const docRef = doc(db, 'users', uid, 'media_items', item.id);
-              batch.set(docRef, cleanUndefined({ ...item, userId: uid }));
-            });
-            
-            INITIAL_PLAYERS.forEach((player) => {
-              const docRef = doc(db, 'users', uid, 'players', player.id);
-              batch.set(docRef, cleanUndefined({ ...player, userId: uid }));
-            });
-            
-            INITIAL_PLAYLISTS.forEach((pl) => {
-              const docRef = doc(db, 'users', uid, 'playlists', pl.id);
-              batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
-            });
-            
-            INITIAL_LOGS.forEach((log) => {
-              const docRef = doc(db, 'users', uid, 'logs', log.id);
-              batch.set(docRef, cleanUndefined({ ...log, userId: uid }));
-            });
-            
-            await batch.commit();
-            
+          try {
+            const localMedia = localStorage.getItem('local_media_items');
+            const localPlayers = localStorage.getItem('local_players');
+            const localPlaylists = localStorage.getItem('local_playlists');
+            const localLogs = localStorage.getItem('local_logs');
+
+            setMediaItems(localMedia ? JSON.parse(localMedia) : INITIAL_MEDIA_ITEMS);
+            setPlayers(localPlayers ? JSON.parse(localPlayers) : INITIAL_PLAYERS);
+            setPlaylists(localPlaylists ? JSON.parse(localPlaylists) : INITIAL_PLAYLISTS);
+            setLogs(localLogs ? JSON.parse(localLogs) : INITIAL_LOGS);
+          } catch (e) {
             setMediaItems(INITIAL_MEDIA_ITEMS);
             setPlayers(INITIAL_PLAYERS);
             setPlaylists(INITIAL_PLAYLISTS);
             setLogs(INITIAL_LOGS);
-          } else {
-            // Load existing data from Firestore
-            const items: MediaItem[] = [];
-            mediaSnap.forEach(doc => items.push(doc.data() as MediaItem));
-            setMediaItems(items);
+          }
 
-            const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
-            const loadedPlayers: Player[] = [];
-            playersSnap.forEach(doc => loadedPlayers.push(doc.data() as Player));
-            setPlayers(loadedPlayers);
+          setLoadingData(false);
+          showToast("Acesso rápido ativado (Modo Desempenho Local)");
+        }, 3500);
 
-            const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
-            const loadedPlaylists: Playlist[] = [];
-            playlistsSnap.forEach(doc => loadedPlaylists.push(doc.data() as Playlist));
-            setPlaylists(loadedPlaylists);
+        try {
+          const mediaRef = collection(db, 'users', uid, 'media_items');
+          const mediaSnap = await getDocs(mediaRef);
+          
+          if (!didTimeOutOrResolve) {
+            clearTimeout(timeoutId);
+            didTimeOutOrResolve = true;
 
-            const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
-            const loadedLogs: LogEntry[] = [];
-            logsSnap.forEach(doc => loadedLogs.push(doc.data() as LogEntry));
-            setLogs(loadedLogs);
+            if (mediaSnap.empty) {
+              // Seed default data into Firestore for the first-time user
+              const batch = writeBatch(db);
+              
+              INITIAL_MEDIA_ITEMS.forEach((item) => {
+                const docRef = doc(db, 'users', uid, 'media_items', item.id);
+                batch.set(docRef, cleanUndefined({ ...item, userId: uid }));
+              });
+              
+              INITIAL_PLAYERS.forEach((player) => {
+                const docRef = doc(db, 'users', uid, 'players', player.id);
+                batch.set(docRef, cleanUndefined({ ...player, userId: uid }));
+              });
+              
+              INITIAL_PLAYLISTS.forEach((pl) => {
+                const docRef = doc(db, 'users', uid, 'playlists', pl.id);
+                batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
+              });
+              
+              INITIAL_LOGS.forEach((log) => {
+                const docRef = doc(db, 'users', uid, 'logs', log.id);
+                batch.set(docRef, cleanUndefined({ ...log, userId: uid }));
+              });
+              
+              await batch.commit();
+              
+              setMediaItems(INITIAL_MEDIA_ITEMS);
+              setPlayers(INITIAL_PLAYERS);
+              setPlaylists(INITIAL_PLAYLISTS);
+              setLogs(INITIAL_LOGS);
+
+              // Update cache
+              localStorage.setItem('local_media_items', JSON.stringify(INITIAL_MEDIA_ITEMS));
+              localStorage.setItem('local_players', JSON.stringify(INITIAL_PLAYERS));
+              localStorage.setItem('local_playlists', JSON.stringify(INITIAL_PLAYLISTS));
+              localStorage.setItem('local_logs', JSON.stringify(INITIAL_LOGS));
+            } else {
+              // Load existing data from Firestore
+              const items: MediaItem[] = [];
+              mediaSnap.forEach(doc => items.push(doc.data() as MediaItem));
+              setMediaItems(items);
+              localStorage.setItem('local_media_items', JSON.stringify(items));
+
+              const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
+              const loadedPlayers: Player[] = [];
+              playersSnap.forEach(doc => loadedPlayers.push(doc.data() as Player));
+              setPlayers(loadedPlayers);
+              localStorage.setItem('local_players', JSON.stringify(loadedPlayers));
+
+              const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
+              const loadedPlaylists: Playlist[] = [];
+              playlistsSnap.forEach(doc => loadedPlaylists.push(doc.data() as Playlist));
+              setPlaylists(loadedPlaylists);
+              localStorage.setItem('local_playlists', JSON.stringify(loadedPlaylists));
+
+              const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
+              const loadedLogs: LogEntry[] = [];
+              logsSnap.forEach(doc => loadedLogs.push(doc.data() as LogEntry));
+              setLogs(loadedLogs);
+              localStorage.setItem('local_logs', JSON.stringify(loadedLogs));
+            }
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+          if (!didTimeOutOrResolve) {
+            clearTimeout(timeoutId);
+            didTimeOutOrResolve = true;
+            handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+          } else {
+            console.error("Firestore loading error after timeout: ", error);
+          }
         } finally {
           setLoadingData(false);
         }
@@ -521,9 +596,13 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-[#1c1242] to-[#0d0921] text-brand-on-surface flex flex-col font-inter relative overflow-hidden">
       
       {/* Mesh Gradient Accents */}
-      <div className="absolute top-[-10%] right-[-15%] w-[600px] h-[600px] rounded-full blur-[140px] bg-pink-500/15 pointer-events-none z-0" />
-      <div className="absolute bottom-[-10%] left-[5%] w-[550px] h-[550px] rounded-full blur-[130px] bg-blue-400/15 pointer-events-none z-0" />
-      <div className="absolute top-[35%] left-[45%] w-[450px] h-[450px] rounded-full blur-[145px] bg-purple-600/10 pointer-events-none z-0" />
+      {!isTvBoxMode && (
+        <>
+          <div className="absolute top-[-10%] right-[-15%] w-[600px] h-[600px] rounded-full blur-[140px] bg-pink-500/15 pointer-events-none z-0" />
+          <div className="absolute bottom-[-10%] left-[5%] w-[550px] h-[550px] rounded-full blur-[130px] bg-blue-400/15 pointer-events-none z-0" />
+          <div className="absolute top-[35%] left-[45%] w-[450px] h-[450px] rounded-full blur-[145px] bg-purple-600/10 pointer-events-none z-0" />
+        </>
+      )}
       
       {/* Sidebar Navigation */}
       {isMobileSidebarOpen && (
@@ -612,7 +691,8 @@ export default function App() {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
               const urlVal = formData.get('backendUrl') as string;
-              handleSaveSettings(urlVal);
+              const tvBoxVal = formData.get('tvBoxMode') === 'on';
+              handleSaveSettings(urlVal, tvBoxVal);
             }} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-2 font-geist">
@@ -629,6 +709,25 @@ export default function App() {
                 <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
                   Necessário para buscar conteúdos de sites e convertê-los em slides (Web Scraping). Por padrão, utiliza o servidor do Google Cloud Run temporário.
                 </p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <label className="flex items-start gap-3 cursor-pointer select-none group">
+                  <input 
+                    type="checkbox"
+                    name="tvBoxMode"
+                    defaultChecked={isTvBoxMode}
+                    className="w-4 h-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-0 focus:ring-offset-0 mt-0.5"
+                  />
+                  <div>
+                    <span className="block text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                      Modo TV Box & Desempenho
+                    </span>
+                    <span className="block text-[10px] text-white/50 leading-relaxed mt-0.5">
+                      Desativa filtros CSS pesados (blur de fundo) e acelera o carregamento geral. Recomendado para TV Boxes, tablets ou dispositivos com hardware mais limitado.
+                    </span>
+                  </div>
+                </label>
               </div>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-white/10">

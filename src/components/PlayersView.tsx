@@ -88,7 +88,18 @@ export default function PlayersView({
                   <div className="w-16 h-10 rounded-lg bg-brand-surface-container overflow-hidden border border-brand-outline-variant/10 shrink-0 relative">
                     {currentMedia ? (
                       currentMedia.type === 'video' ? (
-                        <video src={currentMedia.url} className="w-full h-full object-cover" muted autoPlay playsInline loop />
+                        <video 
+                          src={currentMedia.url} 
+                          className="w-full h-full object-cover" 
+                          muted 
+                          autoPlay 
+                          playsInline 
+                          loop 
+                          onCanPlay={(e) => {
+                            e.currentTarget.muted = true;
+                            e.currentTarget.play().catch(err => console.log("Autoplay preview:", err));
+                          }}
+                        />
                       ) : (
                         <img src={currentMedia.url} alt="Playing thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       )

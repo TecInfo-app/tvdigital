@@ -64,3 +64,26 @@ body {
 .scroll-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* TV Box Performance Mode overrides */
+.tv-box-performance * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important; /* Disabling transitions on low-spec saves redraw layout time */
+  animation-duration: 0.001s !important; /* Stop heavy canvas/CSS keyframe animation ticks */
+}
+
+.tv-box-performance body {
+  background: #090615 !important; /* solid fallback instead of complex radial-gradient */
+}
+
+.tv-box-performance .glass-card {
+  background: rgba(20, 15, 40, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.tv-box-performance aside,
+.tv-box-performance header,
+.tv-box-performance .bg-\[\#140e30\]\/95 {
+  background-color: #120d2c !important;
+}

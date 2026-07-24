@@ -88,11 +88,12 @@ export function cleanUndefined<T>(obj: T): T {
  */
 export function getApiUrl(path: string): string {
   if (typeof window !== 'undefined') {
-    const isStaticHost = window.location.hostname.includes('github.io') || 
-                         window.location.hostname.includes('vercel.app') || 
-                         window.location.hostname.includes('netlify.app');
+    const isLocalDev = window.location.hostname === 'localhost' && window.location.port === '3000';
+    // If we are NOT in the active development workspace (e.g. running inside APK, file://, or on external hosts),
+    // we must route the request to the live Cloud Run backend server.
+    const isStaticOrWebView = !isLocalDev;
                          
-    if (isStaticHost) {
+    if (isStaticOrWebView) {
       // The Cloud Run live preview URL acting as the API backend
       const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
       let savedBackend = localStorage.getItem('backend_api_url') || fallbackBackend;

@@ -108,6 +108,10 @@ export default function LivePlayerModal({
               autoPlay
               muted
               playsInline
+              onCanPlay={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(err => console.log("Autoplay simulator:", err));
+              }}
               onLoadedMetadata={(e) => {
                 // Optionally update item duration if needed
                 if (e.currentTarget.duration && !isNaN(e.currentTarget.duration)) {
