@@ -52,6 +52,19 @@ export default function App() {
 
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
   const [backendUrl, setBackendUrl] = useState(() => {
     const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
     let saved = localStorage.getItem('backend_api_url') || fallbackBackend;
@@ -513,6 +526,12 @@ export default function App() {
       <div className="absolute top-[35%] left-[45%] w-[450px] h-[450px] rounded-full blur-[145px] bg-purple-600/10 pointer-events-none z-0" />
       
       {/* Sidebar Navigation */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -526,6 +545,10 @@ export default function App() {
         onSupportClick={() => showToast('Abrindo chat de suporte com a engenharia...')}
         user={user}
         onLogout={handleLogout}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
       {/* Main Header Controller */}
@@ -537,10 +560,14 @@ export default function App() {
         onDeployAll={handleDeployAll}
         onOpenSimulator={() => handleOpenSimulator()}
         logsCount={logs.length}
+        onMenuClick={() => setIsMobileSidebarOpen(true)}
+        isSidebarCollapsed={isSidebarCollapsed}
       />
 
       {/* Main Screen Content Frame */}
-      <main className="ml-[312px] p-10 min-h-[calc(100vh-64px)] bg-transparent relative z-10">
+      <main className={`p-4 md:p-10 min-h-[calc(100vh-64px)] bg-transparent relative z-10 transition-all duration-300 ${
+        isSidebarCollapsed ? 'lg:ml-[112px]' : 'lg:ml-[312px]'
+      } ml-0`}>
         {renderActiveView()}
       </main>
 
