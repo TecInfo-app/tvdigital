@@ -7,6 +7,41 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <!-- Diagnostic Inline Error Boundary for older WebView/TV Box environments -->
+    <script>
+      (function() {
+        var showError = function(title, message, errorObj) {
+          var container = document.getElementById('early-error-display');
+          if (!container) {
+            container = document.createElement('div');
+            container.id = 'early-error-display';
+            container.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#1e1b4b;color:#fca5a5;padding:24px;z-index:99999;font-family:monospace;overflow:auto;line-height:1.5;font-size:14px;';
+            document.body.appendChild(container);
+          }
+          var html = '<h1 style="color:#ef4444;font-size:20px;margin-bottom:12px;font-weight:bold;">⚠️ Erro de Inicialização do Aplicativo</h1>';
+          html += '<p style="color:#e2e8f0;margin-bottom:16px;">Ocorreu um erro ao carregar o aplicativo na TV Box ou navegador. Detalhes técnicos abaixo:</p>';
+          html += '<div style="background:#0f172a;padding:16px;border-radius:8px;border:1px solid #ef4444;margin-bottom:16px;white-space:pre-wrap;">';
+          html += '<strong>Mensagem:</strong> ' + message + '\n';
+          if (errorObj && errorObj.stack) {
+            html += '<strong>Rastreamento (Stack):</strong>\n' + errorObj.stack + '\n';
+          }
+          html += '</div>';
+          html += '<div style="color:#94a3b8;font-size:12px;">';
+          html += '<strong>Dispositivo (User Agent):</strong> ' + navigator.userAgent + '\n';
+          html += '</div>';
+          html += '<div style="margin-top:20px;"><button onclick="window.location.reload(true)" style="background:#ef4444;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;font-weight:bold;">Tentar Recarregar</button></div>';
+          container.innerHTML = html;
+        };
+
+        window.addEventListener('error', function(event) {
+          showError('Erro de Script', event.message + ' (' + event.filename + ':' + event.lineno + ':' + event.colno + ')', event.error);
+        });
+
+        window.addEventListener('unhandledrejection', function(event) {
+          showError('Rejeição não tratada (Promise)', String(event.reason), event.reason);
+        });
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

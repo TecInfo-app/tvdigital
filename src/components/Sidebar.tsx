@@ -66,7 +66,7 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar" 
-      className={`${sidebarWidthClass} ${mobileTranslateClass} h-[calc(100vh-32px)] fixed left-4 top-4 border border-white/15 bg-white/5 backdrop-blur-3xl flex flex-col gap-4 z-50 transition-all duration-300 rounded-[28px] shadow-2xl`}
+      className={`${sidebarWidthClass} ${mobileTranslateClass} h-[calc(100vh-32px)] fixed left-4 top-4 border border-white/10 bg-[#14102c] flex flex-col gap-4 z-50 transition-all duration-300 rounded-[28px] shadow-2xl`}
     >
       {/* Brand Header */}
       {!isCollapsed ? (

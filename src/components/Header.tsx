@@ -36,7 +36,7 @@ export default function Header({
     : 'lg:ml-[312px] lg:w-[calc(100%-328px)]';
 
   return (
-    <header className={`flex justify-between items-center h-16 px-4 md:px-8 sticky top-4 z-40 bg-[#1c1242]/40 border border-white/15 rounded-2xl backdrop-blur-xl shadow-lg mt-4 mr-4 ml-4 w-[calc(100%-32px)] ${headerLayoutClass} transition-all duration-300`}>
+    <header className={`flex justify-between items-center h-16 px-4 md:px-8 sticky top-4 z-40 bg-[#14102c] border border-white/10 rounded-2xl shadow-lg mt-4 mr-4 ml-4 w-[calc(100%-32px)] ${headerLayoutClass} transition-all duration-300`}>
       <div className="flex items-center gap-3 md:gap-10">
         {onMenuClick && (
           <button 

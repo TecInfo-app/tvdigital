@@ -58,12 +58,27 @@ export default function App() {
     if (saved !== null) return saved === 'true';
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent.toLowerCase();
-      const isTv = ua.includes('smarttv') || ua.includes('tvbox') || ua.includes('tv-box') || 
-                   ua.includes('appletv') || ua.includes('dtv') || ua.includes('boxee') || 
-                   ua.includes('roku') || ua.includes('googletv') || ua.includes('mibox') || 
-                   ua.includes('xiaomi') || ua.includes('firetv') || ua.includes('firestick') ||
-                   ua.includes('android tv') || ua.includes('webos') || ua.includes('tizen');
-      return isTv;
+      // Highly inclusive detection for TV boxes, media players, Android WebViews and older devices
+      const isKnownTv = ua.includes('smarttv') || ua.includes('tvbox') || ua.includes('tv-box') || 
+                        ua.includes('appletv') || ua.includes('dtv') || ua.includes('boxee') || 
+                        ua.includes('roku') || ua.includes('googletv') || ua.includes('mibox') || 
+                        ua.includes('xiaomi') || ua.includes('firetv') || ua.includes('firestick') ||
+                        ua.includes('android tv') || ua.includes('webos') || ua.includes('tizen') ||
+                        ua.includes('mxq') || ua.includes('tx3') || ua.includes('h96') || ua.includes('tanix');
+      
+      const isWebView = ua.includes('wv') || ua.includes('version/4.0') || (ua.includes('android') && !ua.includes('chrome/'));
+      const isOlderChrome = (() => {
+        const match = ua.match(/chrome\/(\d+)/);
+        if (match) {
+          const version = parseInt(match[1], 10);
+          return version < 80; // Chrome versions < 80 lack modern performance/CSS features like backdrop blurs
+        }
+        return false;
+      })();
+      
+      const isLowSpecAndroid = ua.includes('android') && (!ua.includes('mobile') || isWebView);
+
+      return isKnownTv || isWebView || isOlderChrome || isLowSpecAndroid;
     }
     return false;
   });
@@ -594,7 +609,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1c1242] to-[#0d0921] text-brand-on-surface flex flex-col font-inter relative overflow-hidden">
+    <div className="min-h-screen bg-[#090618] text-brand-on-surface flex flex-col font-inter relative overflow-hidden">
       
       {/* Mesh Gradient Accents */}
       {!isTvBoxMode && (
@@ -672,8 +687,8 @@ export default function App() {
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-lg bg-[#140e30]/95 border border-white/10 rounded-[28px] p-6 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4">
+          <div className="w-full max-w-lg bg-[#14102c] border border-white/10 rounded-[28px] p-6 shadow-2xl relative">
             <button 
               onClick={() => setIsSettingsOpen(false)}
               className="absolute top-5 right-5 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all cursor-pointer"

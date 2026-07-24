@@ -36,7 +36,7 @@
 }
 
 body {
-  background: radial-gradient(circle at 0% 0%, #4c1d95 0%, #1e1b4b 100%);
+  background: #090618;
   color: #ffffff;
   font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -44,11 +44,9 @@ body {
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 24px;
+  background: #14102c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
 }
 
 .status-pulse {
