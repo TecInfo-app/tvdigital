@@ -235,102 +235,54 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     .trim();
 
   return (
-    <div 
-      className={`w-full h-full relative overflow-hidden bg-black select-none ${className}`}
-      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', backgroundColor: '#000000' }}
-    >
-      {/* Background Image layer */}
+    <div className={`w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between text-white p-8 md:p-14 select-none ${className}`}>
+      
+      {/* Background Image filling the entire container */}
       {currentItem?.thumbnail ? (
         <div 
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none' }}
+          className="absolute top-0 left-0 w-full h-full overflow-hidden"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', zIndex: 1 }}
         >
           <img 
             src={currentItem.thumbnail} 
             alt="Fundo" 
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', border: 'none' }}
+            className="w-full h-full object-cover"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', minWidth: '100%', minHeight: '100%' }}
             referrerPolicy="no-referrer"
           />
-          {/* Dark gradient overlay for text readability */}
+          {/* Dark gradient overlay for ideal contrast & tone */}
           <div 
-            style={{ 
-              position: 'absolute', 
-              top: 0, 
-              left: 0, 
-              right: 0, 
-              bottom: 0, 
-              width: '100%', 
-              height: '100%', 
-              background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,0.3) 100%)' 
-            }}
+            className="absolute top-0 left-0 w-full h-full"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', zIndex: 2, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,0.4) 100%)' }}
           />
         </div>
       ) : (
         <div 
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            width: '100%', 
-            height: '100%', 
-            zIndex: 1, 
-            background: 'linear-gradient(135deg, #0f172a 0%, #020617 100%)' 
-          }}
+          className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-slate-900 via-slate-950 to-black"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', zIndex: 1 }}
         />
       )}
 
-      {/* Foreground Text Overlay - Positioned explicitly at bottom with high z-index */}
+      {/* Central News Content overlaid on background image */}
       <div 
-        style={{ 
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          width: '100%', 
-          height: '100%', 
-          zIndex: 10, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          justifyContent: 'flex-end', 
-          padding: '3rem 2.5rem', 
-          boxSizing: 'border-box' 
-        }}
+        className="relative my-auto py-12 px-4 md:px-12 space-y-4 max-w-5xl"
+        style={{ position: 'relative', zIndex: 10, transform: 'translateZ(0)', webkitTransform: 'translateZ(0)' }}
       >
-        <div style={{ width: '100%', maxWidth: '1100px', margin: '0 auto' }}>
-          <h1 
-            className="font-montserrat font-black text-2xl md:text-4xl lg:text-5xl"
-            style={{ 
-              color: '#ffffff', 
-              fontSize: '2.5rem', 
-              fontWeight: 900, 
-              lineHeight: 1.25, 
-              marginBottom: '1rem', 
-              textShadow: '2px 2px 10px rgba(0,0,0,0.95), 0 0 20px rgba(0,0,0,0.9)', 
-              wordBreak: 'break-word' 
-            }}
-          >
-            {currentItem?.title || 'Buscando matérias do feed...'}
-          </h1>
+        <h1 
+          className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,1)]"
+          style={{ color: '#ffffff', textShadow: '0 4px 16px rgba(0,0,0,1)', position: 'relative', zIndex: 11 }}
+        >
+          {currentItem?.title || 'Buscando matérias do feed...'}
+        </h1>
 
-          <p 
-            className="font-inter text-base md:text-lg lg:text-xl"
-            style={{ 
-              color: '#f1f5f9', 
-              fontSize: '1.25rem', 
-              fontWeight: 400, 
-              lineHeight: 1.5, 
-              margin: 0, 
-              maxWidth: '900px', 
-              textShadow: '1px 1px 8px rgba(0,0,0,0.95)', 
-              wordBreak: 'break-word' 
-            }}
-          >
-            {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
-          </p>
-        </div>
+        <p 
+          className="font-inter text-sm md:text-base lg:text-xl text-slate-200 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_10px_rgba(0,0,0,1)] pt-2"
+          style={{ color: '#e2e8f0', textShadow: '0 2px 10px rgba(0,0,0,1)', position: 'relative', zIndex: 11 }}
+        >
+          {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
+        </p>
       </div>
+
     </div>
   );
 }
