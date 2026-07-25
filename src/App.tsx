@@ -490,6 +490,13 @@ export default function App() {
 
     let newDocId = editingId;
 
+    // Check size limit (Firestore limits documents to ~1MB)
+    // Base64 string length * 0.75 gives approximate byte size. We cap at 900KB to be safe.
+    if (content && content.length * 0.75 > 900000) {
+      alert("Erro: O arquivo ou imagem selecionada é muito grande para salvar diretamente. Por favor, utilize a opção de 'URL (Dropbox)' para arquivos pesados (especialmente vídeos).");
+      return;
+    }
+
     // Save to Firestore 'playlist' collection with fallback
     try {
       if (editingId) {

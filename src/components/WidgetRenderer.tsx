@@ -235,51 +235,44 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     .trim();
 
   return (
-    <div className={`w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between text-white p-8 md:p-14 select-none ${className}`}>
+    <div className={`w-full h-full flex flex-row bg-slate-900 overflow-hidden text-white select-none ${className}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row' }}>
       
-      {/* Background Image filling the entire container */}
-      {currentItem?.thumbnail ? (
-        <div 
-          className="absolute top-0 left-0 w-full h-full z-0 overflow-hidden"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
-        >
+      {/* Left side: Image */}
+      <div className="w-1/2 h-full relative bg-slate-950" style={{ width: '50%', height: '100%', position: 'relative' }}>
+        {currentItem?.thumbnail ? (
           <img 
             src={currentItem.thumbnail} 
-            alt="Fundo" 
-            className="w-full h-full object-cover scale-105 transition-transform duration-[15000ms] ease-out"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', minWidth: '100%', minHeight: '100%' }}
+            alt="Notícia" 
+            className="w-full h-full object-cover transition-transform duration-[15000ms] ease-out scale-105"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             referrerPolicy="no-referrer"
           />
-          {/* Dark gradient overlay for ideal contrast & tone */}
-          <div 
-            className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/95 via-black/70 to-black/40"
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', background: 'linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7), rgba(0,0,0,0.4))' }}
-          />
-        </div>
-      ) : (
-        <div 
-          className="absolute top-0 left-0 w-full h-full z-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
-        />
-      )}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-slate-800" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="text-slate-500 font-bold text-2xl">SEM IMAGEM</span>
+          </div>
+        )}
+      </div>
 
-      {/* Central News Content overlaid on background image */}
-      <div className="relative z-10 my-auto py-12 px-4 md:px-12 space-y-4 max-w-5xl animate-in fade-in duration-500">
+      {/* Right side: News Content */}
+      <div className="w-1/2 h-full flex flex-col justify-center px-12 md:px-16 space-y-6 bg-slate-900 relative shadow-2xl" style={{ width: '50%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 4rem', backgroundColor: '#0f172a', zIndex: 10 }}>
+        {/* Decorative accent */}
+        <div className="w-16 h-2 bg-blue-600 rounded-full mb-4" style={{ width: '4rem', height: '0.5rem', backgroundColor: '#2563eb', borderRadius: '9999px' }}></div>
+
         <h1 
-          className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,1)]"
-          style={{ color: '#ffffff', textShadow: '0 4px 16px rgba(0,0,0,1)' }}
+          className="font-montserrat font-black text-3xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white"
+          style={{ color: '#ffffff', wordWrap: 'break-word', overflowWrap: 'break-word' }}
         >
           {currentItem?.title || 'Buscando matérias do feed...'}
         </h1>
 
         <p 
-          className="font-inter text-sm md:text-base lg:text-xl text-slate-200 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_10px_rgba(0,0,0,1)] pt-2"
-          style={{ color: '#e2e8f0', textShadow: '0 2px 10px rgba(0,0,0,1)' }}
+          className="font-inter text-lg md:text-xl lg:text-2xl text-slate-300 leading-relaxed font-normal tracking-wide pt-2"
+          style={{ color: '#cbd5e1', wordWrap: 'break-word', overflowWrap: 'break-word' }}
         >
           {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
         </p>
       </div>
-
     </div>
   );
 }
