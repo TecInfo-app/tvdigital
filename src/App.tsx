@@ -136,7 +136,7 @@ export default function App() {
       setUser(currentUser);
       if (currentUser) {
         setLoadingData(true);
-        const uid = currentUser.uid; me
+        const uid = currentUser.uid;
         
         let didTimeOutOrResolve = false;
 
