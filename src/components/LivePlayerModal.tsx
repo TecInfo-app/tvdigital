@@ -149,11 +149,25 @@ export default function LivePlayerModal({
         )}
       </div>
 
-      {/* Top Floating Overlay - Only Clock */}
-      <div className="relative z-10 w-full p-6 flex justify-end items-center pointer-events-none">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 bg-black/60 border border-gray-200 rounded-xl text-sm font-mono-data backdrop-blur-md shadow-2xl pointer-events-auto">
-          <Clock className="w-4 h-4 text-blue-600" />
-          <span className="font-bold text-gray-900 tracking-wider">{timeStr}</span>
+      {/* Top Floating Overlay - Title and Close button */}
+      <div className="relative z-10 w-full p-4 md:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onClose}
+            className="flex items-center gap-2 px-3.5 py-2 bg-red-600/90 hover:bg-red-600 text-white rounded-xl text-xs font-bold tracking-wide transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-md"
+            title="Sair da exibição de propagandas"
+          >
+            <X className="w-4 h-4" />
+            <span>Sair da Reprodução</span>
+          </button>
+          <span className="hidden sm:inline-block text-xs text-white/70 font-medium px-2 py-1 bg-white/10 rounded-lg backdrop-blur-sm">
+            {playerName}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 px-3.5 py-1.5 bg-black/60 border border-white/10 rounded-xl text-sm font-mono text-white backdrop-blur-md shadow-2xl">
+          <Clock className="w-4 h-4 text-blue-400" />
+          <span className="font-bold tracking-wider">{timeStr}</span>
         </div>
       </div>
 

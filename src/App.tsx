@@ -4,8 +4,6 @@ import { collection, doc, getDocs, writeBatch, getDocFromServer } from 'firebase
 import { auth, db, handleFirestoreError, OperationType, cleanUndefined } from './firebase';
 import { safeLocalStorage } from './utils/safeStorage';
 
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
 import DashboardView from './components/DashboardView';
 import PlayersView from './components/PlayersView';
 import ContentView from './components/ContentView';
@@ -14,7 +12,27 @@ import SchedulesView from './components/SchedulesView';
 import AnalyticsView from './components/AnalyticsView';
 import LivePlayerModal from './components/LivePlayerModal';
 import Auth from './components/Auth';
-import { Loader2, Tv, Settings, X } from 'lucide-react';
+
+import { 
+  Loader2, 
+  Tv, 
+  Settings, 
+  X, 
+  Play, 
+  Film, 
+  ListVideo, 
+  Monitor, 
+  Calendar, 
+  BarChart3, 
+  LayoutDashboard, 
+  LogOut, 
+  Search, 
+  Bell, 
+  ArrowLeft,
+  Activity,
+  User,
+  Sparkles
+} from 'lucide-react';
 
 import { MediaItem, Player, Playlist, LogEntry } from './types';
 import { 
@@ -25,8 +43,8 @@ import {
 } from './mockData';
 
 export default function App() {
-  // Navigation tabs state
-  const [activeTab, setActiveTab] = useState<string>('content'); 
+  // Navigation tabs state: 'home' is the main screen showing side-by-side menu cards
+  const [activeTab, setActiveTab] = useState<string>('home'); 
   const [activeSubTab, setActiveSubTab] = useState<'health' | 'alerts'>('health');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -47,9 +65,9 @@ export default function App() {
   // Live monitor slideshow loop tracker
   const [currentPlayingIndex, setCurrentPlayingIndex] = useState(0);
 
-  // Simulator Modal states
+  // Player / Ads Playback Modal state
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [simulatorPlayer, setSimulatorPlayer] = useState<string>('NYC-TIME-SQUARE-01');
+  const [simulatorPlayer, setSimulatorPlayer] = useState<string>('TELA-PRINCIPAL-01');
 
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -58,7 +76,6 @@ export default function App() {
     if (saved !== null) return saved === 'true';
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent.toLowerCase();
-      // Highly inclusive detection for TV boxes, media players, Android WebViews and older devices
       const isKnownTv = ua.includes('smarttv') || ua.includes('tvbox') || ua.includes('tv-box') || 
                         ua.includes('appletv') || ua.includes('dtv') || ua.includes('boxee') || 
                         ua.includes('roku') || ua.includes('googletv') || ua.includes('mibox') || 
@@ -67,18 +84,7 @@ export default function App() {
                         ua.includes('mxq') || ua.includes('tx3') || ua.includes('h96') || ua.includes('tanix');
       
       const isWebView = ua.includes('wv') || ua.includes('version/4.0') || (ua.includes('android') && !ua.includes('chrome/'));
-      const isOlderChrome = (() => {
-        const match = ua.match(/chrome\/(\d+)/);
-        if (match) {
-          const version = parseInt(match[1], 10);
-          return version < 80; // Chrome versions < 80 lack modern performance/CSS features like backdrop blurs
-        }
-        return false;
-      })();
-      
-      const isLowSpecAndroid = ua.includes('android') && (!ua.includes('mobile') || isWebView);
-
-      return isKnownTv || isWebView || isOlderChrome || isLowSpecAndroid;
+      return isKnownTv || isWebView;
     }
     return false;
   });
@@ -90,19 +96,6 @@ export default function App() {
       document.documentElement.classList.remove('tv-box-performance');
     }
   }, [isTvBoxMode]);
-
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    return safeLocalStorage.getItem('sidebar_collapsed') === 'true';
-  });
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
-  const handleToggleSidebar = () => {
-    setIsSidebarCollapsed(prev => {
-      const next = !prev;
-      safeLocalStorage.setItem('sidebar_collapsed', String(next));
-      return next;
-    });
-  };
 
   const [backendUrl, setBackendUrl] = useState(() => {
     const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
@@ -153,11 +146,9 @@ export default function App() {
         
         let didTimeOutOrResolve = false;
 
-        // Set a 3.5s timeout for TV Box/WebView stability
         const timeoutId = setTimeout(() => {
           if (didTimeOutOrResolve) return;
           didTimeOutOrResolve = true;
-          console.warn("[App Load] Firebase firestore load timed out. Loading from localStorage or defaults...");
           
           try {
             const localMedia = safeLocalStorage.getItem('local_media_items');
@@ -189,7 +180,6 @@ export default function App() {
             didTimeOutOrResolve = true;
 
             if (mediaSnap.empty) {
-              // Seed default data into Firestore for the first-time user
               const batch = writeBatch(db);
               
               INITIAL_MEDIA_ITEMS.forEach((item) => {
@@ -219,13 +209,11 @@ export default function App() {
               setPlaylists(INITIAL_PLAYLISTS);
               setLogs(INITIAL_LOGS);
 
-              // Update cache
               safeLocalStorage.setItem('local_media_items', JSON.stringify(INITIAL_MEDIA_ITEMS));
               safeLocalStorage.setItem('local_players', JSON.stringify(INITIAL_PLAYERS));
               safeLocalStorage.setItem('local_playlists', JSON.stringify(INITIAL_PLAYLISTS));
               safeLocalStorage.setItem('local_logs', JSON.stringify(INITIAL_LOGS));
             } else {
-              // Load existing data from Firestore
               const items: MediaItem[] = [];
               mediaSnap.forEach(doc => items.push(doc.data() as MediaItem));
               setMediaItems(items);
@@ -255,8 +243,6 @@ export default function App() {
             clearTimeout(timeoutId);
             didTimeOutOrResolve = true;
             handleFirestoreError(error, OperationType.GET, `users/${uid}`);
-          } else {
-            console.error("Firestore loading error after timeout: ", error);
           }
         } finally {
           setLoadingData(false);
@@ -273,7 +259,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync state helpers that write updates dynamically to Firestore
+  // Sync state helpers
   const handleSetMediaItems = async (update: MediaItem[] | ((prev: MediaItem[]) => MediaItem[])) => {
     const nextItems = typeof update === 'function' ? update(mediaItems) : update;
     setMediaItems(nextItems); 
@@ -382,21 +368,6 @@ export default function App() {
     }
   };
 
-  // Playlist slideshow cycle timing engine
-  useEffect(() => {
-    if (mediaItems.length === 0) return;
-    const currentItem = mediaItems[currentPlayingIndex];
-    const displayDuration = (currentItem && currentItem.duration > 0) 
-      ? currentItem.duration * 1000 
-      : 10000;
-
-    const timer = setTimeout(() => {
-      setCurrentPlayingIndex((prev) => (prev + 1) % mediaItems.length);
-    }, displayDuration);
-
-    return () => clearTimeout(timer);
-  }, [currentPlayingIndex, mediaItems]);
-
   // Toast feedback trigger helper
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -458,55 +429,30 @@ export default function App() {
 
   // Deploy all changes to active TV screens
   const handleDeployAll = () => {
-    showToast("✓ Implantando todas as playlists ativas em 240 terminais...");
+    showToast("✓ Publicando alterações em todos os displays...");
     
     const newLog: LogEntry = {
       id: `log-${Date.now()}`,
-      action: 'Deploy global acionado. Sincronização de 240 displays concluída.',
+      action: 'Deploy global acionado.',
       time: 'Agora'
     };
     handleSetLogs([newLog, ...logs]);
 
-    handleSetPlayers(players.map(p => {
-      if (p.status === 'warning') {
-        return { ...p, status: 'online', cpu: 30, lastSync: '1s ago' };
-      }
-      return p;
-    }));
+    handleSetPlayers(players.map(p => ({ ...p, status: 'online', cpu: 25, lastSync: '1s atrás' })));
   };
 
-  // Player action items reboots and force syncs
+  // Player actions
   const handlePlayerAction = (id: string, action: 'reboot' | 'sync') => {
     const targetPlayer = players.find(p => p.id === id);
     if (!targetPlayer) return;
 
     if (action === 'reboot') {
-      showToast(`Reiniciando controlador de display "${targetPlayer.name}"...`);
-      handleSetPlayers(players.map(p => {
-        if (p.id === id) {
-          return { ...p, status: 'offline', cpu: 0, bandwidth: 0, lastSync: '1s ago' };
-        }
-        return p;
-      }));
-
+      showToast(`Reiniciando "${targetPlayer.name}"...`);
       setTimeout(() => {
-        handleSetPlayers(prev => prev.map(p => {
-          if (p.id === id) {
-            return { ...p, status: 'online', cpu: 22, bandwidth: 10.5, lastSync: 'Just now' };
-          }
-          return p;
-        }));
-        showToast(`Display "${targetPlayer.name}" recuperado com sucesso.`);
-      }, 4000);
-
+        showToast(`Display "${targetPlayer.name}" reiniciado com sucesso.`);
+      }, 3000);
     } else {
-      showToast(`Forçando sincronização de cache em "${targetPlayer.name}"...`);
-      handleSetPlayers(players.map(p => {
-        if (p.id === id) {
-          return { ...p, status: 'online', lastSync: 'Just now', cpu: 45 };
-        }
-        return p;
-      }));
+      showToast(`Sincronizando "${targetPlayer.name}"...`);
     }
   };
 
@@ -520,21 +466,22 @@ export default function App() {
     }
   };
 
-  const handleOpenSimulator = (player?: Player) => {
-    setSimulatorPlayer(player ? player.name : 'NYC-TIME-SQUARE-01');
+  // Open Fullscreen Ads Reproducer directly
+  const handleOpenPlayer = (player?: Player) => {
+    setSimulatorPlayer(player ? player.name : 'TELA-PRINCIPAL-01');
     setIsSimulatorOpen(true);
   };
 
-  // Loading Screen for Auth and initial Firestore fetch
+  // Loading Screen
   if (authLoading || loadingData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1c1242] to-[#0d0921] flex flex-col items-center justify-center gap-4 text-brand-on-surface">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-primary to-purple-500 flex items-center justify-center shadow-lg shadow-brand-primary/20">
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4 text-white">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-blue-500/20">
           <Tv className="w-7 h-7 text-white" />
         </div>
         <div className="flex items-center gap-2">
-          <Loader2 className="w-4 h-4 text-brand-primary animate-spin" />
-          <span className="text-xs font-bold font-geist tracking-wide text-brand-outline uppercase">
+          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+          <span className="text-xs font-bold tracking-wider text-gray-400 uppercase">
             Carregando FastPlayer...
           </span>
         </div>
@@ -547,127 +494,340 @@ export default function App() {
     return <Auth onSuccess={() => {}} />;
   }
 
-  // Dashboard router
-  const renderActiveView = () => {
-    const filteredPlayers = players.filter(player => 
-      player.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      player.ip.includes(searchQuery)
-    );
+  const filteredPlayers = players.filter(player => 
+    player.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    player.ip.includes(searchQuery)
+  );
 
-    switch (activeTab) {
-      case 'dashboard':
-        return (
-          <DashboardView 
-            players={players} 
-            logs={logs} 
-            mediaItems={mediaItems} 
-            setActiveTab={setActiveTab}
-            onDeployAll={handleDeployAll}
-          />
-        );
-      case 'players':
-        return (
-          <PlayersView 
-            players={filteredPlayers} 
-            mediaItems={mediaItems}
-            onPlayerAction={handlePlayerAction}
-            onOpenSimulator={handleOpenSimulator}
-          />
-        );
-      case 'content':
-        return (
-          <ContentView 
-            mediaItems={mediaItems}
-            setMediaItems={handleSetMediaItems}
-            onAddMedia={handleAddMedia}
-            currentPlayingIndex={currentPlayingIndex}
-          />
-        );
-      case 'playlists':
-        return (
-          <PlaylistsView 
-            playlists={playlists}
-            mediaItems={mediaItems}
-            onSelectPlaylist={handleSelectPlaylist}
-            onCreatePlaylist={handleCreatePlaylist}
-          />
-        );
-      case 'schedules':
-        return <SchedulesView playlists={playlists} />;
-      case 'analytics':
-        return <AnalyticsView />;
-      default:
-        return (
-          <ContentView 
-            mediaItems={mediaItems}
-            setMediaItems={handleSetMediaItems}
-            onAddMedia={handleAddMedia}
-            currentPlayingIndex={currentPlayingIndex}
-          />
-        );
+  // Menu cards list for side-by-side display
+  const menuItems = [
+    {
+      id: 'play-ads',
+      title: 'Reproduzir Propagandas',
+      subtitle: 'Iniciar exibição de mídias e anúncios em tela cheia agora',
+      icon: Play,
+      isPrimary: true,
+      onClick: () => handleOpenPlayer()
+    },
+    {
+      id: 'content',
+      title: 'Mídias e Anúncios',
+      subtitle: 'Cadastrar vídeos, imagens, notícias e páginas web',
+      icon: Film,
+      isPrimary: false,
+      onClick: () => setActiveTab('content')
+    },
+    {
+      id: 'playlists',
+      title: 'Playlists',
+      subtitle: 'Organizar a ordem e duração da reprodução',
+      icon: ListVideo,
+      isPrimary: false,
+      onClick: () => setActiveTab('playlists')
+    },
+    {
+      id: 'players',
+      title: 'Telas e Players',
+      subtitle: 'Gerenciar dispositivos e monitorar conexões',
+      icon: Monitor,
+      isPrimary: false,
+      onClick: () => setActiveTab('players')
+    },
+    {
+      id: 'schedules',
+      title: 'Programação',
+      subtitle: 'Agendar horários de exibição das mídias',
+      icon: Calendar,
+      isPrimary: false,
+      onClick: () => setActiveTab('schedules')
+    },
+    {
+      id: 'analytics',
+      title: 'Estatísticas',
+      subtitle: 'Métricas de reprodução e relatórios de exibição',
+      icon: BarChart3,
+      isPrimary: false,
+      onClick: () => setActiveTab('analytics')
+    },
+    {
+      id: 'dashboard',
+      title: 'Painel Geral',
+      subtitle: 'Resumo do sistema e histórico de eventos',
+      icon: LayoutDashboard,
+      isPrimary: false,
+      onClick: () => setActiveTab('dashboard')
     }
-  };
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col md:flex-row font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-gray-100 text-gray-900 font-sans flex flex-col">
       
-      {/* Sidebar Navigation */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onDeployClick={() => {
-          setActiveTab('content');
-          setTimeout(() => {
-            document.getElementById('quick-upload-section')?.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        }}
-        onSettingsClick={() => setIsSettingsOpen(true)}
-        onSupportClick={() => showToast('Abrindo chat de suporte com a engenharia...')}
-        user={user}
-        onLogout={handleLogout}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={handleToggleSidebar}
-        isMobileOpen={isMobileSidebarOpen}
-        onCloseMobile={() => setIsMobileSidebarOpen(false)}
-      />
+      {/* Super Simple Top Header Bar */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          
+          {/* Logo & Home Button */}
+          <button 
+            onClick={() => setActiveTab('home')}
+            className="flex items-center gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <Tv className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-base font-black tracking-tight text-gray-900 block leading-tight">
+                FastPlayer
+              </span>
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
+                Mídia Indoor
+              </span>
+            </div>
+          </button>
 
-      {/* Main Screen Content Frame */}
-      <div className={`flex-1 flex flex-col w-full h-screen overflow-hidden relative z-10 transition-all duration-300 ${isSidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[280px]'}`}>
-        {/* Main Header Controller */}
-        <Header 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          activeSubTab={activeSubTab}
-          setActiveSubTab={setActiveSubTab}
-          onDeployAll={handleDeployAll}
-          onOpenSimulator={() => handleOpenSimulator()}
-          logsCount={logs.length}
-          onMenuClick={() => setIsMobileSidebarOpen(true)}
-          isSidebarCollapsed={isSidebarCollapsed}
-        />
+          {/* Quick Search */}
+          <div className="hidden sm:flex items-center relative max-w-xs w-full">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar mídias ou telas..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+            />
+          </div>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 transition-all duration-300">
-          {renderActiveView()}
-        </main>
-      </div>
+          {/* Header Action Controls */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={handleDeployAll}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              title="Publicar alterações"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Publicar</span>
+            </button>
 
-      {/* Toast Overlay */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+              title="Configurações"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+
+            <div className="h-5 w-px bg-gray-200 my-auto hidden sm:block" />
+
+            {/* User Profile & Logout */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">
+                {user.email ? user.email.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                title="Sair da Conta"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      {/* Main Body Layout */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        
+        {/* Navigation Breadcrumb bar if in sub-view */}
+        {activeTab !== 'home' && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
+            <button
+              onClick={() => setActiveTab('home')}
+              className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3.5 py-2 rounded-lg border border-gray-200 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Início (Menus)</span>
+            </button>
+
+            {/* Top Menu Tabs for fast switching */}
+            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0 scroll-hide">
+              {[
+                { id: 'content', label: 'Mídias' },
+                { id: 'playlists', label: 'Playlists' },
+                { id: 'players', label: 'Telas' },
+                { id: 'schedules', label: 'Programação' },
+                { id: 'analytics', label: 'Estatísticas' },
+                { id: 'dashboard', label: 'Painel Geral' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* HOME SCREEN: Clean Side-by-Side Menu Cards */}
+        {activeTab === 'home' ? (
+          <div className="space-y-6 animate-fade-in">
+            {/* Greeting Banner */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+              <div className="relative z-10 space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold backdrop-blur-md">
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>Painel de Controle FastPlayer</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+                  Selecione uma opção
+                </h2>
+                <p className="text-blue-100 text-sm max-w-2xl leading-relaxed">
+                  Gerencie suas propagandas, organizando vídeos, imagens e programações de mídia indoor com simplicidade.
+                </p>
+              </div>
+              <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+            </div>
+
+            {/* SIDE-BY-SIDE MENU CARDS GRID */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+              {menuItems.map((item) => {
+                const IconComponent = item.icon;
+                
+                if (item.isPrimary) {
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={item.onClick}
+                      className="sm:col-span-2 lg:col-span-2 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 border-2 border-blue-500 rounded-2xl p-6 sm:p-8 text-white shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer group relative overflow-hidden flex flex-col justify-between"
+                    >
+                      <div className="relative z-10 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="w-12 h-12 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                            <Play className="w-6 h-6 fill-current ml-0.5" />
+                          </div>
+                          <span className="px-3 py-1 bg-blue-500/30 text-blue-300 text-xs font-bold rounded-full border border-blue-400/30 uppercase tracking-wider">
+                            Modo Exibição
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="text-xl sm:text-2xl font-black text-white group-hover:text-blue-300 transition-colors">
+                            {item.title}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">
+                            {item.subtitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="relative z-10 mt-6 flex items-center justify-between pt-4 border-t border-white/10">
+                        <span className="text-xs font-bold text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <span>Clique para Abrir o Player</span>
+                          <span className="text-lg">→</span>
+                        </span>
+                        <div className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-md">
+                          ▶ Iniciar Agora
+                        </div>
+                      </div>
+
+                      <div className="absolute right-0 bottom-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={item.onClick}
+                    className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group"
+                  >
+                    <div className="space-y-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {item.title}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                          {item.subtitle}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-blue-600 opacity-80 group-hover:opacity-100">
+                      <span>Acessar</span>
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* ACTIVE SUB-VIEW RENDER */
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+            {activeTab === 'dashboard' && (
+              <DashboardView 
+                players={players} 
+                logs={logs} 
+                mediaItems={mediaItems} 
+                setActiveTab={setActiveTab}
+                onDeployAll={handleDeployAll}
+              />
+            )}
+            {activeTab === 'players' && (
+              <PlayersView 
+                players={filteredPlayers} 
+                mediaItems={mediaItems}
+                onPlayerAction={handlePlayerAction}
+                onOpenSimulator={handleOpenPlayer}
+              />
+            )}
+            {activeTab === 'content' && (
+              <ContentView 
+                mediaItems={mediaItems}
+                setMediaItems={handleSetMediaItems}
+                onAddMedia={handleAddMedia}
+                currentPlayingIndex={currentPlayingIndex}
+              />
+            )}
+            {activeTab === 'playlists' && (
+              <PlaylistsView 
+                playlists={playlists}
+                mediaItems={mediaItems}
+                onSelectPlaylist={handleSelectPlaylist}
+                onCreatePlaylist={handleCreatePlaylist}
+              />
+            )}
+            {activeTab === 'schedules' && (
+              <SchedulesView playlists={playlists} />
+            )}
+            {activeTab === 'analytics' && (
+              <AnalyticsView />
+            )}
+          </div>
+        )}
+
+      </main>
+
+      {/* Toast Feedback */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="w-2.5 h-2.5 bg-green-500 rounded-full status-pulse"></div>
-          <span className="text-sm font-medium tracking-wide">
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-gray-800">
+          <div className="w-2.5 h-2.5 bg-green-400 rounded-full status-pulse"></div>
+          <span className="text-xs font-semibold tracking-wide">
             {toastMessage}
           </span>
         </div>
       )}
 
-      {/* TV Screen Fullscreen playback Simulator Modal */}
+      {/* Fullscreen Ads Player Modal */}
       <LivePlayerModal 
         isOpen={isSimulatorOpen}
         onClose={() => setIsSimulatorOpen(false)}
@@ -678,20 +838,20 @@ export default function App() {
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-xl p-6 shadow-xl relative">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
             <button 
               onClick={() => setIsSettingsOpen(false)}
-              className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 p-2 rounded-lg transition-all cursor-pointer"
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 p-2 rounded-xl transition-all cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
               <Settings className="w-5 h-5 text-blue-600" />
               <span>Configurações do Sistema</span>
             </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Gerencie a integração do back-end para as funcionalidades dinâmicas em produção.
+            <p className="text-xs text-gray-500 mb-6">
+              Ajuste servidores e modo de desempenho do FastPlayer.
             </p>
             
             <form onSubmit={(e) => {
@@ -702,8 +862,8 @@ export default function App() {
               handleSaveSettings(urlVal, tvBoxVal);
             }} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 tracking-wider mb-2">
-                  URL da API de Integração (Conversor RSS/Sites)
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  URL do Servidor de Integração
                 </label>
                 <input 
                   type="text"
@@ -711,45 +871,42 @@ export default function App() {
                   defaultValue={backendUrl}
                   required
                   placeholder="https://exemplo-api.fly.dev"
-                  className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-xs text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                  Necessário para buscar conteúdos de sites e convertê-los em slides (Web Scraping). Por padrão, utiliza o servidor do Google Cloud Run temporário.
-                </p>
               </div>
 
-              <div className="border-t border-gray-200 pt-4">
+              <div className="border-t border-gray-100 pt-4">
                 <label className="flex items-start gap-3 cursor-pointer select-none group">
                   <input 
                     type="checkbox"
                     name="tvBoxMode"
                     defaultChecked={isTvBoxMode}
-                    className="w-4 h-4 rounded border-gray-300 bg-white text-blue-600 focus:ring-blue-500 mt-0.5"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
                   />
                   <div>
-                    <span className="block text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    <span className="block text-xs font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                       Modo TV Box & Desempenho
                     </span>
-                    <span className="block text-xs text-gray-500 leading-relaxed mt-0.5">
-                      Desativa filtros CSS pesados (blur de fundo) e acelera o carregamento geral. Recomendado para TV Boxes, tablets ou dispositivos com hardware mais limitado.
+                    <span className="block text-[11px] text-gray-500 leading-relaxed mt-0.5">
+                      Desativa animações e melhora o desempenho em Smart TVs e Android TV Boxes.
                     </span>
                   </div>
                 </label>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-200">
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-blue-600 text-sm font-bold text-white shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-blue-600 text-xs font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 transition-all cursor-pointer"
                 >
-                  Salvar Configurações
+                  Salvar Alterações
                 </button>
               </div>
             </form>
