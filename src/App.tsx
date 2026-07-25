@@ -1,6 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, doc, getDocs, writeBatch, getDocFromServer, query, where } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  onSnapshot, 
+  doc, 
+  deleteDoc, 
+  query, 
+  where, 
+  updateDoc, 
+  getDocs,
+  writeBatch,
+  getDocFromServer
+} from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, cleanUndefined } from './firebase';
 import { safeLocalStorage } from './utils/safeStorage';
 
@@ -13,29 +25,6 @@ import AnalyticsView from './components/AnalyticsView';
 import LivePlayerModal from './components/LivePlayerModal';
 import Auth from './components/Auth';
 
-import { 
-  Loader2, 
-  Tv, 
-  Settings, 
-  X, 
-  Play, 
-  Film, 
-  ListVideo, 
-  Monitor, 
-  Calendar, 
-  BarChart3, 
-  LayoutDashboard, 
-  LogOut, 
-  Search, 
-  ArrowLeft,
-  Activity,
-  User,
-  Link,
-  FileText,
-  Copy,
-  Check
-} from 'lucide-react';
-
 import { MediaItem, Player, Playlist, LogEntry } from './types';
 import { 
   INITIAL_MEDIA_ITEMS, 
@@ -45,10 +34,8 @@ import {
 } from './mockData';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('home'); 
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // Authentication State
+  // Navigation screen mode: 'menu' | 'config' | 'report' | 'players' | 'playlists' | 'schedules' | 'analytics' | 'dashboard' | 'player'
+  const [screen, setScreen] = useState<string>('menu');
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
@@ -59,27 +46,38 @@ export default function App() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
+  // Playlist state synced directly with Firestore "playlist" collection (like the HTML code)
+  const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   // Global toast alerts
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Live monitor slideshow loop tracker
-  const [currentPlayingIndex] = useState(0);
-
-  // Player / Ads Playback Modal state
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [simulatorPlayer, setSimulatorPlayer] = useState<string>('TELA-PRINCIPAL-01');
+  // Form states (Nova / Editando Mídia)
+  const [propName, setPropName] = useState('');
+  const [propDuration, setPropDuration] = useState<number | ''>('');
+  const [inputType, setInputType] = useState<string>('video_url');
+  const [propUrl, setPropUrl] = useState('');
+  const [fileData, setFileData] = useState<string>('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
   // Dropbox Converter states
   const [dropIn, setDropIn] = useState('');
   const [dropOutLink, setDropOutLink] = useState('');
   const [showDropOut, setShowDropOut] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   // Report states
   const [repStart, setRepStart] = useState('');
   const [repEnd, setRepEnd] = useState('');
   const [reportResults, setReportResults] = useState<Record<string, number> | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+
+  // Player playback states
+  const [playIdx, setPlayIdx] = useState(0);
+  const [currentMedia, setCurrentMedia] = useState<MediaItem | null>(null);
+  const playerTimerRef = useRef<any>(null);
 
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -94,20 +92,10 @@ export default function App() {
                         ua.includes('xiaomi') || ua.includes('firetv') || ua.includes('firestick') ||
                         ua.includes('android tv') || ua.includes('webos') || ua.includes('tizen') ||
                         ua.includes('mxq') || ua.includes('tx3') || ua.includes('h96') || ua.includes('tanix');
-      
-      const isWebView = ua.includes('wv') || ua.includes('version/4.0') || (ua.includes('android') && !ua.includes('chrome/'));
-      return isKnownTv || isWebView;
+      return isKnownTv;
     }
     return false;
   });
-
-  useEffect(() => {
-    if (isTvBoxMode) {
-      document.documentElement.classList.add('tv-box-performance');
-    } else {
-      document.documentElement.classList.remove('tv-box-performance');
-    }
-  }, [isTvBoxMode]);
 
   const [backendUrl, setBackendUrl] = useState(() => {
     const fallbackBackend = 'https://ais-dev-53xuhhwynlrdgmdswoabct-358759362238.us-west1.run.app';
@@ -119,19 +107,13 @@ export default function App() {
     return saved;
   });
 
-  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean) => {
-    let cleanUrl = newUrl.trim();
-    if (cleanUrl.endsWith('/')) {
-      cleanUrl = cleanUrl.slice(0, -1);
-    }
-    safeLocalStorage.setItem('backend_api_url', cleanUrl);
-    setBackendUrl(cleanUrl);
-    
-    safeLocalStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
-    setIsTvBoxMode(enableTvBoxMode);
-    
-    showToast('Configurações salvas.');
-    setIsSettingsOpen(false);
+  const nomesDias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg(null);
+    }, 3000);
   };
 
   useEffect(() => {
@@ -140,22 +122,49 @@ export default function App() {
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
         if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
+          console.error("Firebase connection check.");
         }
       }
     }
     testConnection();
   }, []);
 
+  // Firebase auth & data synchronization
   useEffect(() => {
+    let unsubSnap: (() => void) | null = null;
+
+    // Safety timeout: ensure authLoading is never stuck true for more than 2 seconds
+    const authTimeout = setTimeout(() => {
+      setAuthLoading(false);
+    }, 2000);
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      clearTimeout(authTimeout);
       setUser(currentUser);
+      setAuthLoading(false);
+
       if (currentUser) {
         setLoadingData(true);
         const uid = currentUser.uid;
-        
-        let didTimeOutOrResolve = false;
 
+        if (unsubSnap) {
+          unsubSnap();
+          unsubSnap = null;
+        }
+
+        // Monitor Firestore "playlist" collection directly (HTML structure compatibility)
+        const qPlaylist = query(collection(db, "playlist"), where("userId", "==", uid));
+        unsubSnap = onSnapshot(qPlaylist, (snap) => {
+          const items: MediaItem[] = snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as MediaItem))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+          setFirestorePlaylist(items);
+        }, (err) => {
+          console.warn("Playlist monitor notice:", err);
+        });
+
+        // Initialize user data collections with fallback
+        let didTimeOutOrResolve = false;
         const timeoutId = setTimeout(() => {
           if (didTimeOutOrResolve) return;
           didTimeOutOrResolve = true;
@@ -176,10 +185,8 @@ export default function App() {
             setPlaylists(INITIAL_PLAYLISTS);
             setLogs(INITIAL_LOGS);
           }
-
           setLoadingData(false);
-          showToast("Acesso rápido ativado");
-        }, 3500);
+        }, 2500);
 
         try {
           const mediaRef = collection(db, 'users', uid, 'media_items');
@@ -218,78 +225,72 @@ export default function App() {
               setPlayers(INITIAL_PLAYERS);
               setPlaylists(INITIAL_PLAYLISTS);
               setLogs(INITIAL_LOGS);
-
-              safeLocalStorage.setItem('local_media_items', JSON.stringify(INITIAL_MEDIA_ITEMS));
-              safeLocalStorage.setItem('local_players', JSON.stringify(INITIAL_PLAYERS));
-              safeLocalStorage.setItem('local_playlists', JSON.stringify(INITIAL_PLAYLISTS));
-              safeLocalStorage.setItem('local_logs', JSON.stringify(INITIAL_LOGS));
             } else {
               const items: MediaItem[] = [];
               mediaSnap.forEach(doc => items.push(doc.data() as MediaItem));
               setMediaItems(items);
-              safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
 
               const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
               const loadedPlayers: Player[] = [];
               playersSnap.forEach(doc => loadedPlayers.push(doc.data() as Player));
               setPlayers(loadedPlayers);
-              safeLocalStorage.setItem('local_players', JSON.stringify(loadedPlayers));
 
               const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
               const loadedPlaylists: Playlist[] = [];
               playlistsSnap.forEach(doc => loadedPlaylists.push(doc.data() as Playlist));
               setPlaylists(loadedPlaylists);
-              safeLocalStorage.setItem('local_playlists', JSON.stringify(loadedPlaylists));
 
               const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
               const loadedLogs: LogEntry[] = [];
               logsSnap.forEach(doc => loadedLogs.push(doc.data() as LogEntry));
               setLogs(loadedLogs);
-              safeLocalStorage.setItem('local_logs', JSON.stringify(loadedLogs));
             }
           }
         } catch (error) {
           if (!didTimeOutOrResolve) {
             clearTimeout(timeoutId);
             didTimeOutOrResolve = true;
-            handleFirestoreError(error, OperationType.GET, `users/${uid}`);
           }
         } finally {
           setLoadingData(false);
         }
       } else {
+        if (unsubSnap) {
+          unsubSnap();
+          unsubSnap = null;
+        }
         setMediaItems([]);
         setPlayers([]);
         setPlaylists([]);
         setLogs([]);
+        setFirestorePlaylist([]);
+        setLoadingData(false);
       }
-      setAuthLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(authTimeout);
+      unsubscribe();
+      if (unsubSnap) unsubSnap();
+    };
   }, []);
 
+  // Handlers for App states
   const handleSetMediaItems = async (update: MediaItem[] | ((prev: MediaItem[]) => MediaItem[])) => {
     const nextItems = typeof update === 'function' ? update(mediaItems) : update;
     setMediaItems(nextItems); 
-    
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     try {
       const batch = writeBatch(db);
       const nextIds = new Set(nextItems.map(item => item.id));
       const deletedItems = mediaItems.filter(item => !nextIds.has(item.id));
-      
       deletedItems.forEach((item) => {
-        const docRef = doc(db, 'users', uid, 'media_items', item.id);
-        batch.delete(docRef);
+        batch.delete(doc(db, 'users', uid, 'media_items', item.id));
       });
-
       nextItems.forEach((item) => {
-        const docRef = doc(db, 'users', uid, 'media_items', item.id);
-        batch.set(docRef, cleanUndefined({ ...item, userId: uid }));
+        batch.set(doc(db, 'users', uid, 'media_items', item.id), cleanUndefined({ ...item, userId: uid }));
       });
-      
       await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${uid}/media_items`);
@@ -299,24 +300,13 @@ export default function App() {
   const handleSetPlayers = async (update: Player[] | ((prev: Player[]) => Player[])) => {
     const nextPlayers = typeof update === 'function' ? update(players) : update;
     setPlayers(nextPlayers);
-
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     try {
       const batch = writeBatch(db);
-      const nextIds = new Set(nextPlayers.map(p => p.id));
-      const deletedPlayers = players.filter(p => !nextIds.has(p.id));
-
-      deletedPlayers.forEach((p) => {
-        const docRef = doc(db, 'users', uid, 'players', p.id);
-        batch.delete(docRef);
-      });
-
       nextPlayers.forEach((p) => {
-        const docRef = doc(db, 'users', uid, 'players', p.id);
-        batch.set(docRef, cleanUndefined({ ...p, userId: uid }));
+        batch.set(doc(db, 'users', uid, 'players', p.id), cleanUndefined({ ...p, userId: uid }));
       });
-
       await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${uid}/players`);
@@ -326,151 +316,20 @@ export default function App() {
   const handleSetPlaylists = async (update: Playlist[] | ((prev: Playlist[]) => Playlist[])) => {
     const nextPlaylists = typeof update === 'function' ? update(playlists) : update;
     setPlaylists(nextPlaylists);
-
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     try {
       const batch = writeBatch(db);
-      const nextIds = new Set(nextPlaylists.map(pl => pl.id));
-      const deletedPlaylists = playlists.filter(pl => !nextIds.has(pl.id));
-
-      deletedPlaylists.forEach((pl) => {
-        const docRef = doc(db, 'users', uid, 'playlists', pl.id);
-        batch.delete(docRef);
-      });
-
       nextPlaylists.forEach((pl) => {
-        const docRef = doc(db, 'users', uid, 'playlists', pl.id);
-        batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
+        batch.set(doc(db, 'users', uid, 'playlists', pl.id), cleanUndefined({ ...pl, userId: uid }));
       });
-
       await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${uid}/playlists`);
     }
   };
 
-  const handleSetLogs = async (update: LogEntry[] | ((prev: LogEntry[]) => LogEntry[])) => {
-    const nextLogs = typeof update === 'function' ? update(logs) : update;
-    setLogs(nextLogs);
-
-    if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-    try {
-      const batch = writeBatch(db);
-      const nextIds = new Set(nextLogs.map(l => l.id));
-      const deletedLogs = logs.filter(l => !nextIds.has(l.id));
-
-      deletedLogs.forEach((l) => {
-        const docRef = doc(db, 'users', uid, 'logs', l.id);
-        batch.delete(docRef);
-      });
-
-      nextLogs.forEach((l) => {
-        const docRef = doc(db, 'users', uid, 'logs', l.id);
-        batch.set(docRef, cleanUndefined({ ...l, userId: uid }));
-      });
-
-      await batch.commit();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${uid}/logs`);
-    }
-  };
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
-  };
-
-  const handleSelectPlaylist = (playlistId: string) => {
-    const updatedPlaylists = playlists.map(pl => ({
-      ...pl,
-      isActive: pl.id === playlistId
-    }));
-    handleSetPlaylists(updatedPlaylists);
-
-    const selected = playlists.find(p => p.id === playlistId);
-    if (selected) {
-      showToast(`Playlist ativa: ${selected.name}`);
-    }
-  };
-
-  const handleCreatePlaylist = (name: string) => {
-    const newPl: Playlist = {
-      id: `playlist-${Date.now()}`,
-      name,
-      itemIds: ['media-1', 'media-2'],
-      isActive: false
-    };
-    handleSetPlaylists([...playlists, newPl]);
-    
-    const newLog: LogEntry = {
-      id: `log-${Date.now()}`,
-      action: `Nova playlist: "${name}"`,
-      time: 'Agora'
-    };
-    handleSetLogs([newLog, ...logs]);
-    showToast(`Playlist "${name}" criada.`);
-  };
-
-  const handleAddMedia = (newItem: Omit<MediaItem, 'id' | 'active'>) => {
-    const itemWithId: MediaItem = {
-      ...newItem,
-      id: `media-${Date.now()}`,
-      active: true
-    };
-    handleSetMediaItems([...mediaItems, itemWithId]);
-
-    const newLog: LogEntry = {
-      id: `log-${Date.now()}`,
-      action: `Adicionada mídia "${newItem.name}"`,
-      time: 'Agora'
-    };
-    handleSetLogs([newLog, ...logs]);
-    showToast(`Mídia "${newItem.name}" adicionada.`);
-  };
-
-  const handleDeployAll = () => {
-    showToast("Publicando alterações em todos os exibições...");
-    
-    const newLog: LogEntry = {
-      id: `log-${Date.now()}`,
-      action: 'Publicação global acionada.',
-      time: 'Agora'
-    };
-    handleSetLogs([newLog, ...logs]);
-    handleSetPlayers(players.map(p => ({ ...p, status: 'online', cpu: 25, lastSync: '1s atrás' })));
-  };
-
-  const handlePlayerAction = (id: string, action: 'reboot' | 'sync') => {
-    const targetPlayer = players.find(p => p.id === id);
-    if (!targetPlayer) return;
-
-    if (action === 'reboot') {
-      showToast(`Reiniciando ${targetPlayer.name}...`);
-    } else {
-      showToast(`Sincronizando ${targetPlayer.name}...`);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      showToast('Sessão encerrada.');
-    } catch (err) {
-      console.error(err);
-      showToast('Erro ao sair.');
-    }
-  };
-
-  const handleOpenPlayer = (player?: Player) => {
-    setSimulatorPlayer(player ? player.name : 'TELA-PRINCIPAL-01');
-    setIsSimulatorOpen(true);
-  };
-
-  // Convert Dropbox Link helper
+  // Dropbox Converter
   const convertDrop = () => {
     if (!dropIn.includes('dropbox.com')) {
       alert("Link Inválido");
@@ -483,14 +342,143 @@ export default function App() {
   };
 
   const copyConvertedLink = () => {
-    navigator.clipboard.writeText(dropOutLink).then(() => {
-      setCopiedLink(true);
-      showToast("Copiado!");
-      setTimeout(() => setCopiedLink(false), 2000);
-    });
+    navigator.clipboard.writeText(dropOutLink).then(() => showToast("Copiado!"));
   };
 
-  // Generate Report Helper
+  // Toggle Day option
+  const toggleDay = (dayVal: number) => {
+    if (selectedDays.includes(dayVal)) {
+      setSelectedDays(selectedDays.filter(d => d !== dayVal));
+    } else {
+      setSelectedDays([...selectedDays, dayVal].sort());
+    }
+  };
+
+  // Save Media in Firestore 'playlist'
+  const handleSaveMedia = async () => {
+    if (!propName.trim()) {
+      alert("Insira o nome");
+      return;
+    }
+
+    let content = propUrl;
+    if (inputType.startsWith('upload')) {
+      if (!fileData && !editingId) {
+        alert("Selecione um arquivo para upload");
+        return;
+      }
+      if (fileData) {
+        content = fileData;
+      }
+    }
+
+    const dur = propDuration !== '' ? Number(propDuration) : null;
+
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, "playlist", editingId), {
+          name: propName,
+          content,
+          type: inputType,
+          duration: dur,
+          start: startDate,
+          end: endDate,
+          days: selectedDays
+        });
+        showToast("Alterações salvas!");
+      } else {
+        const nextOrder = firestorePlaylist.length > 0 ? Math.max(...firestorePlaylist.map(i => i.order || 0)) + 1 : 1;
+        await addDoc(collection(db, "playlist"), {
+          name: propName,
+          content,
+          type: inputType,
+          order: nextOrder,
+          start: startDate,
+          end: endDate,
+          userId: user?.uid || '',
+          duration: dur,
+          days: selectedDays
+        });
+        showToast("Mídia salva!");
+      }
+
+      // Also sync to mediaItems state for components
+      const newMediaItem: MediaItem = {
+        id: editingId || `media-${Date.now()}`,
+        name: propName,
+        url: content,
+        content: content,
+        duration: dur || 10,
+        type: inputType.includes('video') ? 'video' : inputType === 'widget' ? 'widget' : 'image',
+        schedule: 'Always On',
+        active: true,
+        order: firestorePlaylist.length + 1
+      };
+      
+      if (!editingId) {
+        handleSetMediaItems([...mediaItems, newMediaItem]);
+      } else {
+        handleSetMediaItems(mediaItems.map(m => m.id === editingId ? { ...m, name: propName, url: content, content } : m));
+      }
+
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao salvar mídia");
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setPropName("");
+    setPropDuration("");
+    setPropUrl("");
+    setFileData("");
+    setStartDate("");
+    setEndDate("");
+    setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+  };
+
+  const editItem = (item: MediaItem) => {
+    setEditingId(item.id);
+    setPropName(item.name);
+    setPropDuration(item.duration !== undefined && item.duration !== null ? item.duration : "");
+    setInputType(item.type || 'video_url');
+    setPropUrl(item.content || item.url || "");
+    setStartDate(item.start || "");
+    setEndDate(item.end || "");
+    setSelectedDays(item.days || [0, 1, 2, 3, 4, 5, 6]);
+  };
+
+  const deleteItem = async (id: string) => {
+    if (confirm("Excluir?")) {
+      try {
+        await deleteDoc(doc(db, "playlist", id));
+        handleSetMediaItems(mediaItems.filter(m => m.id !== id));
+        showToast("Mídia excluída!");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const reorder = async (idx: number, dir: number) => {
+    const target = idx + dir;
+    if (target < 0 || target >= firestorePlaylist.length) return;
+    const current = firestorePlaylist[idx];
+    const next = firestorePlaylist[target];
+    const oldOrder = current.order || 0;
+    const nextOrder = next.order || 0;
+
+    try {
+      await updateDoc(doc(db, "playlist", current.id), { order: nextOrder });
+      await updateDoc(doc(db, "playlist", next.id), { order: oldOrder });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Generate Report
   const generateReport = async () => {
     if (!repStart || !repEnd) {
       alert("Selecione as datas!");
@@ -514,7 +502,7 @@ export default function App() {
       const stats: Record<string, number> = {};
 
       snap.forEach(d => {
-        const n = d.data().action || d.data().mediaName;
+        const n = d.data().mediaName || d.data().action;
         if (n) {
           stats[n] = (stats[n] || 0) + 1;
         }
@@ -529,16 +517,129 @@ export default function App() {
     }
   };
 
+  // Player Loop Logic (like the HTML code)
+  const activePlaylist = firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
+
+  const startPlayer = () => {
+    if (!activePlaylist.length) {
+      alert("Playlist Vazia!");
+      return;
+    }
+    setScreen('player');
+    setPlayIdx(0);
+  };
+
+  useEffect(() => {
+    if (screen !== 'player' || activePlaylist.length === 0) {
+      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loop = (currentIndex: number) => {
+      if (!isMounted) return;
+      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
+
+      let targetIdx = currentIndex;
+      if (targetIdx >= activePlaylist.length) {
+        targetIdx = 0;
+      }
+
+      const item = activePlaylist[targetIdx];
+      const agora = new Date();
+
+      const foraHorario = (item.start && agora < new Date(item.start)) || (item.end && agora > new Date(item.end));
+      const diaErrado = item.days && item.days.length > 0 && !item.days.includes(agora.getDay());
+
+      if (foraHorario || diaErrado) {
+        loop(targetIdx + 1);
+        return;
+      }
+
+      try {
+        addDoc(collection(db, "logs"), {
+          mediaName: item.name,
+          timestamp: Date.now(),
+          userId: user?.uid || ''
+        });
+      } catch (err) {
+        console.warn("Log write notice", err);
+      }
+
+      setCurrentMedia(item);
+      setPlayIdx(targetIdx);
+
+      const isVideo = item.type?.includes('video');
+      const isWidget = item.type === 'widget';
+      const durationMs = (item.duration || (isWidget ? 40 : 10)) * 1000;
+
+      if (!isVideo) {
+        playerTimerRef.current = setTimeout(() => {
+          if (isMounted) loop(targetIdx + 1);
+        }, durationMs);
+      }
+    };
+
+    loop(playIdx);
+
+    return () => {
+      isMounted = false;
+      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
+    };
+  }, [screen, activePlaylist, playIdx]);
+
+  const handleVideoEnded = () => {
+    if (screen === 'player') {
+      setPlayIdx(prev => prev + 1);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (confirm("Sair?")) {
+      await signOut(auth);
+    }
+  };
+
+  const handleSaveSettings = (newUrl: string, enableTvBoxMode: boolean) => {
+    let cleanUrl = newUrl.trim();
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+    safeLocalStorage.setItem('backend_api_url', cleanUrl);
+    setBackendUrl(cleanUrl);
+    
+    safeLocalStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
+    setIsTvBoxMode(enableTvBoxMode);
+    
+    showToast('Configurações salvas!');
+    setIsSettingsOpen(false);
+  };
+
   if (authLoading || loadingData) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-3 text-white">
-        <div className="w-12 h-12 bg-blue-600 flex items-center justify-center rounded">
-          <Tv className="w-6 h-6 text-white" />
-        </div>
-        <div className="flex items-center gap-2 text-sm font-bold text-gray-300">
-          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-          <span>Carregando FastPlayer...</span>
-        </div>
+      <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: '20px', textAlign: 'center' }}>
+        <div style={{ width: '40px', height: '40px', border: '4px solid #2563eb', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <p style={{ marginTop: '15px', fontWeight: 'bold', fontSize: '14px', color: '#cbd5e1' }}>Carregando FastPlayer...</p>
+        <button
+          onClick={() => {
+            setAuthLoading(false);
+            setLoadingData(false);
+          }}
+          style={{
+            marginTop: '20px',
+            background: 'transparent',
+            border: '1px solid #475569',
+            color: '#94a3b8',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          Acessar Painel Direto
+        </button>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -547,461 +648,529 @@ export default function App() {
     return <Auth onSuccess={() => {}} />;
   }
 
-  const filteredPlayers = players.filter(player => 
-    player.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    player.ip.includes(searchQuery)
-  );
-
-  const menuItems = [
-    {
-      id: 'play-ads',
-      title: 'Reproduzir Propagandas',
-      subtitle: 'Iniciar exibição de anúncios em tela cheia',
-      icon: Play,
-      isPrimary: true,
-      onClick: () => handleOpenPlayer()
-    },
-    {
-      id: 'content',
-      title: 'Mídias e Anúncios',
-      subtitle: 'Cadastrar vídeos, imagens, notícias RSS e clima',
-      icon: Film,
-      isPrimary: false,
-      onClick: () => setActiveTab('content')
-    },
-    {
-      id: 'playlists',
-      title: 'Playlists',
-      subtitle: 'Organizar ordem e tempo de exibição',
-      icon: ListVideo,
-      isPrimary: false,
-      onClick: () => setActiveTab('playlists')
-    },
-    {
-      id: 'players',
-      title: 'Telas e Players',
-      subtitle: 'Gerenciar telas e monitorar conexões',
-      icon: Monitor,
-      isPrimary: false,
-      onClick: () => setActiveTab('players')
-    },
-    {
-      id: 'schedules',
-      title: 'Programação',
-      subtitle: 'Agendar horários e dias das mídias',
-      icon: Calendar,
-      isPrimary: false,
-      onClick: () => setActiveTab('schedules')
-    },
-    {
-      id: 'analytics',
-      title: 'Estatísticas',
-      subtitle: 'Métricas de tráfego e relatórios',
-      icon: BarChart3,
-      isPrimary: false,
-      onClick: () => setActiveTab('analytics')
-    },
-    {
-      id: 'report',
-      title: 'Relatórios de Exibição',
-      subtitle: 'Consultar exibições por intervalo de datas',
-      icon: FileText,
-      isPrimary: false,
-      onClick: () => setActiveTab('report')
-    },
-    {
-      id: 'dashboard',
-      title: 'Painel Geral',
-      subtitle: 'Resumo do sistema e histórico de eventos',
-      icon: LayoutDashboard,
-      isPrimary: false,
-      onClick: () => setActiveTab('dashboard')
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 font-sans flex flex-col">
+    <div style={{ fontFamily: 'Inter, sans-serif', background: '#f1f5f9', color: '#1e293b', minHeight: '100vh' }}>
       
-      {/* Top Header Bar */}
-      <header className="bg-white border-b border-gray-300 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: '#10b981',
+          color: 'white',
+          padding: '15px 25px',
+          borderRadius: '10px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          zIndex: 10000,
+          fontWeight: 600,
+          fontSize: '14px'
+        }}>
+          {toastMsg}
+        </div>
+      )}
+
+      {/* SCREEN: MENU PRINCIPAL (Exact structure from HTML) */}
+      {screen === 'menu' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
           
-          <button 
-            onClick={() => setActiveTab('home')}
-            className="flex items-center gap-2.5 text-left cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-blue-600 text-white flex items-center justify-center rounded">
-              <Tv className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-base font-bold text-gray-900 block leading-none">
-                FastPlayer
-              </span>
-              <span className="text-[10px] font-semibold text-gray-500 uppercase block mt-0.5">
-                Mídia Indoor
-              </span>
-            </div>
-          </button>
-
-          <div className="hidden sm:flex items-center relative max-w-xs w-full">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar mídias ou telas..."
-              className="w-full bg-gray-50 border border-gray-300 rounded pl-9 pr-3 py-1.5 text-xs text-gray-900 focus:bg-white focus:border-blue-600 outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDeployAll}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Publicar</span>
-            </button>
-
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
-              title="Configurações"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-
-            <div className="h-5 w-px bg-gray-300 hidden sm:block" />
-
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">
-                {user.email ? user.email.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
-              </div>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-red-600 hover:bg-gray-100 rounded cursor-pointer"
-                title="Sair"
+          {/* Main Dark Card (#0f172a) */}
+          <div style={{ background: '#0f172a', color: 'white', padding: '25px', borderRadius: '16px', textAlign: 'center', marginBottom: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+            <h1 style={{ marginBottom: '5px', fontSize: '28px', fontWeight: 800 }}>Painel Cloud ⚡</h1>
+            <p style={{ fontSize: '12px', opacity: 0.7, marginBottom: '20px' }}>{user.email}</p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button 
+                onClick={() => setScreen('config')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#2563eb', color: 'white', fontSize: '14px' }}
               >
-                <LogOut className="w-4 h-4" />
+                ⚙️ Playlist & Mídias
+              </button>
+
+              <button 
+                onClick={startPlayer}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#10b981', color: 'white', fontSize: '14px' }}
+              >
+                ▶️ Iniciar TV
+              </button>
+
+              <button 
+                onClick={() => setScreen('report')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#6366f1', color: 'white', fontSize: '14px' }}
+              >
+                📊 Relatórios
+              </button>
+
+              <button 
+                onClick={() => setScreen('players')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#0284c7', color: 'white', fontSize: '14px' }}
+              >
+                🖥️ Telas & Players
+              </button>
+
+              <button 
+                onClick={() => setScreen('playlists')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#8b5cf6', color: 'white', fontSize: '14px' }}
+              >
+                📋 Listas Salvas
+              </button>
+
+              <button 
+                onClick={() => setScreen('schedules')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#f59e0b', color: 'white', fontSize: '14px' }}
+              >
+                📅 Programação
+              </button>
+
+              <button 
+                onClick={() => setScreen('analytics')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#06b6d4', color: 'white', fontSize: '14px' }}
+              >
+                📈 Estatísticas
+              </button>
+
+              <button 
+                onClick={() => setScreen('dashboard')}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#475569', color: 'white', fontSize: '14px' }}
+              >
+                🎛️ Painel Geral
+              </button>
+
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#334155', color: 'white', fontSize: '14px' }}
+              >
+                ⚙️ Configurações
+              </button>
+
+              <button 
+                onClick={handleLogout}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#ef4444', color: 'white', fontSize: '14px' }}
+              >
+                🚪 Sair
               </button>
             </div>
           </div>
 
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
-        
-        {/* Navigation Breadcrumb bar if in sub-view */}
-        {activeTab !== 'home' && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded border border-gray-300">
-            <button
-              onClick={() => setActiveTab('home')}
-              className="flex items-center gap-1.5 text-xs font-bold text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded border border-gray-300 cursor-pointer"
+          {/* Dashed Border Dropbox Card (Exact HTML styling) */}
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '2px dashed #6366f1', marginBottom: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 700 }}>🔗 Conversor Dropbox</h3>
+            <input 
+              type="text" 
+              value={dropIn}
+              onChange={(e) => setDropIn(e.target.value)}
+              placeholder="Cole o link dl=0 aqui..."
+              style={{ width: '100%', padding: '12px', margin: '8px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+            />
+            <button 
+              onClick={convertDrop}
+              style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#6366f1', color: 'white' }}
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Início (Menus)</span>
+              Converter
             </button>
 
-            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
-              {[
-                { id: 'content', label: 'Mídias' },
-                { id: 'playlists', label: 'Playlists' },
-                { id: 'players', label: 'Telas' },
-                { id: 'schedules', label: 'Programação' },
-                { id: 'analytics', label: 'Estatísticas' },
-                { id: 'report', label: 'Relatórios' },
-                { id: 'dashboard', label: 'Painel Geral' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-1.5 rounded text-xs font-bold cursor-pointer whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+            {showDropOut && (
+              <div style={{ marginTop: '10px', background: '#f0f4ff', padding: '15px', borderRadius: '10px' }}>
+                <div style={{ fontSize: '11px', wordBreak: 'break-all', fontWeight: 'bold', marginBottom: '10px', color: '#6366f1' }}>
+                  {dropOutLink}
+                </div>
+                <button 
+                  onClick={copyConvertedLink}
+                  style={{ padding: '8px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, background: '#334155', color: 'white', fontSize: '12px', width: 'auto' }}
                 >
-                  {tab.label}
+                  📋 Copiar Link
                 </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      {/* SCREEN: CONFIG / PLAYLIST & MÍDIAS (Exact HTML Form and List layout) */}
+      {screen === 'config' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button 
+            onClick={() => setScreen('menu')} 
+            style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}
+          >
+            ⬅ Menu Principal
+          </button>
+
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '15px', fontSize: '20px', fontWeight: 700 }}>
+              {editingId ? "Editando Mídia" : "Nova Mídia"}
+            </h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>NOME DA MÍDIA</label>
+                <input 
+                  type="text" 
+                  value={propName}
+                  onChange={(e) => setPropName(e.target.value)}
+                  placeholder="Nome da Mídia"
+                  style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TEMPO (SEG)</label>
+                <input 
+                  type="number" 
+                  value={propDuration}
+                  onChange={(e) => setPropDuration(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="Tempo (seg)"
+                  style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', display: 'block', marginBottom: '6px' }}>
+              Dias de Exibição:
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px', background: '#f8fafc', padding: '10px', borderRadius: '10px' }}>
+              {nomesDias.map((dName, idx) => (
+                <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedDays.includes(idx)}
+                    onChange={() => toggleDay(idx)}
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  <span>{dName}</span>
+                </label>
               ))}
             </div>
-          </div>
-        )}
 
-        {/* HOME SCREEN: Clean Flat Side-by-Side Menu Cards */}
-        {activeTab === 'home' ? (
-          <div className="space-y-6">
-            {/* Header Title */}
-            <div className="bg-white border border-gray-300 rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Painel Principal FastPlayer
-                </h2>
-                <p className="text-xs text-gray-600 mt-1">
-                  Usuário conectado: <strong>{user.email}</strong>
-                </p>
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TIPO DE MÍDIA</label>
+            <select 
+              value={inputType}
+              onChange={(e) => setInputType(e.target.value)}
+              style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box', background: 'white' }}
+            >
+              <option value="video_url">URL de Vídeo (Dropbox)</option>
+              <option value="img_url">URL de Imagem (Dropbox)</option>
+              <option value="widget">Widget / Site</option>
+              <option value="upload_video">Upload Local VÍDEO</option>
+              <option value="upload_img">Upload Local IMAGEM</option>
+            </select>
+
+            {inputType.startsWith('upload') ? (
+              <div style={{ marginBottom: '15px' }}>
+                <input 
+                  type="file" 
+                  accept={inputType.includes('video') ? 'video/*' : 'image/*'}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const reader = new FileReader();
+                      reader.onload = () => setFileData(reader.result as string);
+                      reader.readAsDataURL(e.target.files[0]);
+                    }
+                  }}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px' }}
+                />
               </div>
+            ) : (
+              <div>
+                <input 
+                  type="url" 
+                  value={propUrl}
+                  onChange={(e) => setPropUrl(e.target.value)}
+                  placeholder="https://..."
+                  style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
 
-              {/* Quick Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleOpenPlayer()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>▶ Iniciar TV</span>
-                </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <small style={{ fontWeight: 'bold', color: '#64748b' }}>Data Início:</small>
+                <input 
+                  type="datetime-local" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  style={{ width: '100%', padding: '10px', margin: '4px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <small style={{ fontWeight: 'bold', color: '#64748b' }}>Data Fim:</small>
+                <input 
+                  type="datetime-local" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={{ width: '100%', padding: '10px', margin: '4px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
               </div>
             </div>
 
-            {/* SIDE-BY-SIDE FLAT MENU CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {menuItems.map((item) => {
-                const IconComponent = item.icon;
-                
-                if (item.isPrimary) {
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={item.onClick}
-                      className="sm:col-span-2 lg:col-span-2 bg-blue-600 border border-blue-700 rounded p-6 text-white cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="w-10 h-10 bg-blue-800 text-white flex items-center justify-center rounded">
-                            <Play className="w-5 h-5 fill-current" />
-                          </div>
-                          <span className="px-2.5 py-1 bg-blue-700 text-white text-[11px] font-bold rounded uppercase tracking-wider">
-                            Modo Exibição
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-white">
-                            {item.title}
-                          </h3>
-                          <p className="text-xs text-blue-100 mt-1">
-                            {item.subtitle}
-                          </p>
-                        </div>
-                      </div>
+            <button 
+              onClick={handleSaveMedia}
+              style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#10b981', color: 'white', marginBottom: editingId ? '10px' : '0' }}
+            >
+              Salvar Mídia
+            </button>
 
-                      <div className="mt-6 pt-4 border-t border-blue-500 flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">
-                          Clique para iniciar a transmissão
-                        </span>
-                        <div className="px-3 py-1.5 bg-white text-blue-700 font-bold text-xs rounded">
-                          ▶ Iniciar Anúncios
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
+            {editingId && (
+              <button 
+                onClick={resetForm}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#ef4444', color: 'white' }}
+              >
+                Cancelar Edição
+              </button>
+            )}
+          </div>
+
+          {/* Media List rendered as .media-item cards */}
+          <div>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
+              Fila de Exibição ({activePlaylist.length})
+            </h3>
+
+            {activePlaylist.length === 0 ? (
+              <div style={{ background: 'white', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px', border: '1px solid #e2e8f0' }}>
+                Nenhuma mídia na playlist. Preencha os campos acima para cadastrar.
+              </div>
+            ) : (
+              activePlaylist.map((item, index) => {
+                let desc = (item.days && item.days.length < 7) 
+                  ? "📅 " + item.days.map(d => nomesDias[d]).join(", ") 
+                  : "📅 Todos os dias";
+
+                if (item.start || item.end) desc += ` | 🕒 Agendado`;
+                if (item.duration) desc += ` | ⏱️ ${item.duration}s`;
 
                 return (
-                  <div
-                    key={item.id}
-                    onClick={item.onClick}
-                    className="bg-white border border-gray-300 rounded p-5 cursor-pointer flex flex-col justify-between hover:border-blue-600"
-                  >
-                    <div className="space-y-3">
-                      <div className="w-10 h-10 bg-gray-100 text-blue-600 flex items-center justify-center rounded">
-                        <IconComponent className="w-5 h-5" />
+                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '60px 1fr auto', alignItems: 'center', padding: '12px', background: 'white', marginBottom: '8px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <button 
+                        onClick={() => reorder(index, -1)}
+                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        onClick={() => reorder(index, 1)}
+                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ▼
+                      </button>
+                    </div>
+
+                    <div style={{ paddingLeft: '10px', overflow: 'hidden' }}>
+                      <div style={{ fontWeight: 600, fontSize: '14px', color: '#334155' }}>
+                        {item.name}
                       </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-gray-900">
-                          {item.title}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                          {item.subtitle}
-                        </p>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                        {desc}
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-xs font-bold text-blue-600">
-                      <span>Abrir</span>
-                      <span>→</span>
+                    <div>
+                      <button 
+                        onClick={() => editItem(item)}
+                        style={{ color: '#f59e0b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Editar
+                      </button>
+                      <button 
+                        onClick={() => deleteItem(item.id)}
+                        style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '10px', fontSize: '18px', fontWeight: 'bold' }}
+                      >
+                        &times;
+                      </button>
                     </div>
                   </div>
                 );
-              })}
-            </div>
-
-            {/* DROPBOX LINK CONVERTER TOOL CARD */}
-            <div className="bg-white p-6 rounded border border-gray-300 space-y-3">
-              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Link className="w-4 h-4 text-indigo-600" />
-                <span>Conversor de Links Dropbox</span>
-              </h3>
-              <p className="text-xs text-gray-500">
-                Cole o link compartilhado do Dropbox com `dl=0` para converter em URL de reprodução direta `raw=1`.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input 
-                  type="text"
-                  value={dropIn}
-                  onChange={(e) => setDropIn(e.target.value)}
-                  placeholder="Cole o link dl=0 aqui..."
-                  className="flex-1 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-xs text-gray-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                />
-                <button 
-                  onClick={convertDrop}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded text-xs cursor-pointer"
-                >
-                  Converter
-                </button>
-              </div>
-
-              {showDropOut && (
-                <div className="bg-indigo-50 p-3 rounded border border-indigo-200 space-y-2">
-                  <div className="text-xs font-mono font-bold text-indigo-800 break-all">
-                    {dropOutLink}
-                  </div>
-                  <button 
-                    onClick={copyConvertedLink}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-1.5 px-3 rounded cursor-pointer flex items-center gap-1"
-                  >
-                    {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedLink ? 'Copiado!' : 'Copiar Link Direto'}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
+              })
+            )}
           </div>
-        ) : (
-          /* SUB-VIEW */
-          <div className="bg-white border border-gray-300 rounded p-4 sm:p-6">
-            {activeTab === 'dashboard' && (
-              <DashboardView 
-                players={players} 
-                logs={logs} 
-                mediaItems={mediaItems} 
-                setActiveTab={setActiveTab}
-                onDeployAll={handleDeployAll}
-              />
-            )}
-            {activeTab === 'players' && (
-              <PlayersView 
-                players={filteredPlayers} 
-                mediaItems={mediaItems}
-                onPlayerAction={handlePlayerAction}
-                onOpenSimulator={handleOpenPlayer}
-              />
-            )}
-            {activeTab === 'content' && (
-              <ContentView 
-                mediaItems={mediaItems}
-                setMediaItems={handleSetMediaItems}
-                onAddMedia={handleAddMedia}
-                currentPlayingIndex={currentPlayingIndex}
-              />
-            )}
-            {activeTab === 'playlists' && (
-              <PlaylistsView 
-                playlists={playlists}
-                mediaItems={mediaItems}
-                onSelectPlaylist={handleSelectPlaylist}
-                onCreatePlaylist={handleCreatePlaylist}
-              />
-            )}
-            {activeTab === 'schedules' && (
-              <SchedulesView playlists={playlists} />
-            )}
-            {activeTab === 'analytics' && (
-              <AnalyticsView />
-            )}
-            {activeTab === 'report' && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-bold text-gray-900">Relatórios de Exibição de Mídias</h2>
-                <p className="text-xs text-gray-500">
-                  Consulte os registros de reprodução acionados nos terminais por intervalo de datas.
-                </p>
+        </div>
+      )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end bg-gray-50 p-4 rounded border border-gray-200">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">De:</label>
-                    <input 
-                      type="date"
-                      value={repStart}
-                      onChange={(e) => setRepStart(e.target.value)}
-                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Até:</label>
-                    <input 
-                      type="date"
-                      value={repEnd}
-                      onChange={(e) => setRepEnd(e.target.value)}
-                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-xs"
-                    />
-                  </div>
-                  <button 
-                    onClick={generateReport}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-xs h-[38px] cursor-pointer"
-                  >
-                    {reportLoading ? "Filtrando..." : "Filtrar Exibições"}
-                  </button>
-                </div>
+      {/* SCREEN: RELATÓRIOS (Exact HTML structure) */}
+      {screen === 'report' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button 
+            onClick={() => setScreen('menu')}
+            style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}
+          >
+            ⬅ Voltar
+          </button>
 
-                {reportResults && (
-                  <div className="pt-4 border-t border-gray-200 space-y-2">
-                    <h3 className="font-bold text-sm text-gray-800">Resultados da Consulta:</h3>
-                    {Object.keys(reportResults).length === 0 ? (
-                      <p className="text-xs text-gray-500">Nenhum registro encontrado no período selecionado.</p>
-                    ) : (
-                      Object.entries(reportResults).map(([mName, count]) => (
-                        <div key={mName} className="flex justify-between p-3 bg-gray-50 rounded border border-gray-200 text-xs">
-                          <span className="font-semibold text-gray-800">{mName}</span>
-                          <span className="font-bold text-blue-600">{count}x exibido</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '15px', fontSize: '20px', fontWeight: 700 }}>Relatório de Exibição</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', alignItems: 'flex-end' }}>
+              <div>
+                <small style={{ fontWeight: 'bold', color: '#64748b' }}>De:</small>
+                <input 
+                  type="date" 
+                  value={repStart}
+                  onChange={(e) => setRepStart(e.target.value)}
+                  style={{ width: '100%', padding: '12px', margin: '4px 0 0 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <small style={{ fontWeight: 'bold', color: '#64748b' }}>Até:</small>
+                <input 
+                  type="date" 
+                  value={repEnd}
+                  onChange={(e) => setRepEnd(e.target.value)}
+                  style={{ width: '100%', padding: '12px', margin: '4px 0 0 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <button 
+                onClick={generateReport}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, background: '#2563eb', color: 'white', height: '45px', margin: 0 }}
+              >
+                {reportLoading ? "Filtrando..." : "Filtrar"}
+              </button>
+            </div>
+
+            {reportResults && (
+              <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #e2e8f0' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 10px 0' }}>Resultados:</h3>
+                {Object.keys(reportResults).length === 0 ? (
+                  <p style={{ fontSize: '12px', color: '#64748b' }}>Nenhum registro encontrado para este período.</p>
+                ) : (
+                  Object.entries(reportResults).map(([n, count]) => (
+                    <p key={n} style={{ fontSize: '13px', margin: '6px 0', padding: '8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                      <strong>{n}:</strong> {count}x exibição
+                    </p>
+                  ))
                 )}
               </div>
             )}
           </div>
-        )}
-
-      </main>
-
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-2.5 rounded text-xs font-semibold shadow border border-gray-700">
-          {toastMessage}
         </div>
       )}
 
-      {/* Live Player Modal */}
-      <LivePlayerModal 
-        isOpen={isSimulatorOpen}
-        onClose={() => setIsSimulatorOpen(false)}
-        mediaItems={mediaItems}
-        playerName={simulatorPlayer}
-        initialIndex={currentPlayingIndex}
-      />
+      {/* SUB-VIEW: TELAS E PLAYERS */}
+      {screen === 'players' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button onClick={() => setScreen('menu')} style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}>
+            ⬅ Menu Principal
+          </button>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <PlayersView 
+              players={players} 
+              mediaItems={mediaItems}
+              onPlayerAction={(id, action) => showToast(`Ação ${action} executada.`)}
+              onOpenSimulator={() => startPlayer()}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* SUB-VIEW: LISTAS SALVAS (PLAYLISTS) */}
+      {screen === 'playlists' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button onClick={() => setScreen('menu')} style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}>
+            ⬅ Menu Principal
+          </button>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <PlaylistsView 
+              playlists={playlists}
+              mediaItems={mediaItems}
+              onSelectPlaylist={(id) => showToast(`Playlist selecionada: ${id}`)}
+              onCreatePlaylist={(name) => handleSetPlaylists([...playlists, { id: `pl-${Date.now()}`, name, itemIds: [], isActive: false }])}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* SUB-VIEW: PROGRAMAÇÃO */}
+      {screen === 'schedules' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button onClick={() => setScreen('menu')} style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}>
+            ⬅ Menu Principal
+          </button>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <SchedulesView playlists={playlists} />
+          </div>
+        </div>
+      )}
+
+      {/* SUB-VIEW: ESTATÍSTICAS */}
+      {screen === 'analytics' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button onClick={() => setScreen('menu')} style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}>
+            ⬅ Menu Principal
+          </button>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <AnalyticsView />
+          </div>
+        </div>
+      )}
+
+      {/* SUB-VIEW: PAINEL GERAL */}
+      {screen === 'dashboard' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
+          <button onClick={() => setScreen('menu')} style={{ background: '#ddd', width: 'auto', padding: '10px 18px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, marginBottom: '15px' }}>
+            ⬅ Menu Principal
+          </button>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <DashboardView 
+              players={players} 
+              logs={logs} 
+              mediaItems={mediaItems} 
+              setActiveTab={(tab) => setScreen(tab)}
+              onDeployAll={() => showToast("Publicação global acionada.")}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN PLAYER (#player from HTML code) */}
+      {screen === 'player' && (
+        <div id="player" style={{ background: '#000', position: 'fixed', top: 0, left: 0, zIndex: 9999, height: '100vh', width: '100vw' }}>
+          <button 
+            onClick={() => setScreen('menu')}
+            style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10000, background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+          >
+            ✕ Sair da TV
+          </button>
+
+          <div id="displayArea" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            {currentMedia ? (
+              currentMedia.type?.includes('video') ? (
+                <video 
+                  key={currentMedia.id + '-' + playIdx}
+                  src={currentMedia.content || currentMedia.url}
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={handleVideoEnded}
+                  onError={handleVideoEnded}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
+                />
+              ) : currentMedia.type === 'widget' ? (
+                <iframe 
+                  key={currentMedia.id + '-' + playIdx}
+                  src={currentMedia.content || currentMedia.url}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
+                  title={currentMedia.name}
+                />
+              ) : (
+                <img 
+                  key={currentMedia.id + '-' + playIdx}
+                  src={currentMedia.content || currentMedia.url}
+                  alt={currentMedia.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
+                />
+              )
+            ) : (
+              <div style={{ color: 'white', fontWeight: 'bold' }}>Aguardando mídia...</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-lg bg-white border border-gray-300 rounded p-6 relative">
-            <button 
-              onClick={() => setIsSettingsOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 p-1 rounded cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
-              <Settings className="w-4 h-4 text-blue-600" />
-              <span>Configurações do Sistema</span>
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Ajuste as opções de servidor e modo de tela.
-            </p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '500px', background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px', fontSize: '18px', fontWeight: 700 }}>⚙️ Configurações do Sistema</h3>
             
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1009,51 +1178,42 @@ export default function App() {
               const urlVal = formData.get('backendUrl') as string;
               const tvBoxVal = formData.get('tvBoxMode') === 'on';
               handleSaveSettings(urlVal, tvBoxVal);
-            }} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  URL do Servidor
-                </label>
+            }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '5px' }}>URL DO SERVIDOR</label>
                 <input 
                   type="text"
                   name="backendUrl"
                   defaultValue={backendUrl}
                   required
                   placeholder="https://exemplo-api.fly.dev"
-                  className="w-full bg-gray-50 border border-gray-300 rounded px-3 py-2 text-xs text-gray-900 focus:bg-white focus:outline-none focus:border-blue-600 font-mono"
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <div className="border-t border-gray-200 pt-3">
-                <label className="flex items-start gap-2.5 cursor-pointer">
+              <div style={{ marginBottom: '15px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
+                <label style={{ display: 'flex', itemsCenter: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                   <input 
                     type="checkbox"
                     name="tvBoxMode"
                     defaultChecked={isTvBoxMode}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 mt-0.5"
+                    style={{ width: 'auto', margin: 0 }}
                   />
-                  <div>
-                    <span className="block text-xs font-bold text-gray-900">
-                      Modo Desempenho (TV Box / Smart TV)
-                    </span>
-                    <span className="block text-[11px] text-gray-500 mt-0.5">
-                      Desativa animações e reduz o consumo de memória em aparelhos TV Box.
-                    </span>
-                  </div>
+                  <span>Modo Desempenho (TV Box / Smart TV)</span>
                 </label>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-gray-200">
-                <button
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button 
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="px-3 py-1.5 rounded border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  style={{ padding: '10px 18px', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', cursor: 'pointer', fontWeight: 600 }}
                 >
                   Cancelar
                 </button>
-                <button
+                <button 
                   type="submit"
-                  className="px-4 py-1.5 rounded bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer"
+                  style={{ padding: '10px 18px', border: 'none', borderRadius: '8px', background: '#2563eb', color: 'white', cursor: 'pointer', fontWeight: 600 }}
                 >
                   Salvar
                 </button>
