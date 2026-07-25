@@ -1291,7 +1291,7 @@ export default function App() {
                   onError={handleVideoEnded}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
                 />
-              ) : currentMedia.type === 'widget' || currentMedia.type === 'rss' || (currentMedia.content || currentMedia.url || '').toLowerCase().includes('rss') || (currentMedia.content || currentMedia.url || '').toLowerCase().includes('xml') ? (
+              ) : currentMedia.type === 'widget' || currentMedia.type === 'rss' || currentMedia.type === 'web' || !(/\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(currentMedia.content || currentMedia.url || '')) ? (
                 <WidgetRenderer 
                   key={currentMedia.id + '-' + playIdx}
                   url={currentMedia.content || currentMedia.url} 
@@ -1302,7 +1302,7 @@ export default function App() {
                   key={currentMedia.id + '-' + playIdx}
                   src={currentMedia.content || currentMedia.url}
                   alt={currentMedia.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none', background: '#000' }}
                 />
               )
             ) : (

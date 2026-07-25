@@ -52,6 +52,23 @@ const SIMULATED_FEEDS: RSSItem[] = [
   }
 ];
 
+// Helper to completely strip HTML tags, links, images and entities for TV Box WebViews
+function cleanText(rawHtml: string): string {
+  if (!rawHtml) return "";
+  return rawHtml
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, '') // strip all HTML tags including <a> and <img>
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export default function WidgetRenderer({ url, name, className = "", items: itemsProp }: WidgetRendererProps) {
   const [items, setItems] = useState<RSSItem[]>([]);
   const [feedTitle, setFeedTitle] = useState(name);
@@ -101,12 +118,16 @@ export default function WidgetRenderer({ url, name, className = "", items: items
       })
       .then((data) => {
         if (data.status === 'ok' && data.items && data.items.length > 0) {
-          const parsedItems = data.items.map((item: any) => ({
-            title: item.title || "",
-            description: item.description?.replace(/<[^>]*>/g, '') || "", // Strip HTML tags
+          const parsedItems = data.items.map((item: any, idx: number) => ({
+            title: cleanText(item.title || ""),
+            description: cleanText(item.description || ""),
             pubDate: item.pubDate || "Recente",
             link: item.link || "#",
-            thumbnail: item.thumbnail || item.enclosure?.link || ""
+            thumbnail: item.thumbnail && item.thumbnail.startsWith('http') 
+              ? item.thumbnail 
+              : item.enclosure?.link && item.enclosure.link.startsWith('http')
+              ? item.enclosure.link
+              : SIMULATED_FEEDS[idx % SIMULATED_FEEDS.length].thumbnail
           }));
           setItems(parsedItems);
           if (data.feed && data.feed.title) {
@@ -124,12 +145,14 @@ export default function WidgetRenderer({ url, name, className = "", items: items
         clientSideScrape(targetUrl)
           .then((data) => {
             if (data.status === 'ok' && data.items && data.items.length > 0) {
-              const parsedItems = data.items.map((item: any) => ({
-                title: item.title || "",
-                description: item.description?.replace(/<[^>]*>/g, '') || "",
+              const parsedItems = data.items.map((item: any, idx: number) => ({
+                title: cleanText(item.title || ""),
+                description: cleanText(item.description || ""),
                 pubDate: item.pubDate || "Recente",
                 link: item.link || "#",
-                thumbnail: item.thumbnail || ""
+                thumbnail: item.thumbnail && item.thumbnail.startsWith('http') 
+                  ? item.thumbnail 
+                  : SIMULATED_FEEDS[idx % SIMULATED_FEEDS.length].thumbnail
               }));
               setItems(parsedItems);
               if (data.feed && data.feed.title) {
@@ -143,7 +166,13 @@ export default function WidgetRenderer({ url, name, className = "", items: items
           .catch((scrapeErr) => {
             console.error('All scrape attempts failed (Backend & Client-side):', scrapeErr);
             if (itemsProp && itemsProp.length > 0) {
-              setItems(itemsProp);
+              setItems(itemsProp.map((it, idx) => ({
+                title: cleanText(it.title),
+                description: cleanText(it.description),
+                pubDate: it.pubDate || "Recente",
+                link: "#",
+                thumbnail: it.thumbnail && it.thumbnail.startsWith('http') ? it.thumbnail : SIMULATED_FEEDS[idx % SIMULATED_FEEDS.length].thumbnail
+              })));
               setFeedTitle(name);
             } else {
               setItems(SIMULATED_FEEDS);
@@ -232,11 +261,17 @@ export default function WidgetRenderer({ url, name, className = "", items: items
           </span>
         )}
 
-        <h1 className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,1)]">
+        <h1 
+          className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,1)]"
+          style={{ color: '#ffffff', textShadow: '0 4px 16px rgba(0,0,0,1)' }}
+        >
           {currentItem?.title || 'Buscando matérias do feed...'}
         </h1>
 
-        <p className="font-inter text-sm md:text-base lg:text-xl text-slate-200 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_10px_rgba(0,0,0,1)] pt-2">
+        <p 
+          className="font-inter text-sm md:text-base lg:text-xl text-slate-200 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_10px_rgba(0,0,0,1)] pt-2"
+          style={{ color: '#e2e8f0', textShadow: '0 2px 10px rgba(0,0,0,1)' }}
+        >
           {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
         </p>
       </div>
