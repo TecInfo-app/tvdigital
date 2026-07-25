@@ -239,28 +239,32 @@ export default function WidgetRenderer({ url, name, className = "", items: items
       
       {/* Background Image filling the entire container */}
       {currentItem?.thumbnail ? (
-        <div className="absolute inset-0 z-0">
+        <div 
+          className="absolute top-0 left-0 w-full h-full z-0 overflow-hidden"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
+        >
           <img 
             src={currentItem.thumbnail} 
             alt="Fundo" 
             className="w-full h-full object-cover scale-105 transition-transform duration-[15000ms] ease-out"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', minWidth: '100%', minHeight: '100%' }}
             referrerPolicy="no-referrer"
           />
           {/* Dark gradient overlay for ideal contrast & tone */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/70 to-black/40" />
+          <div 
+            className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/95 via-black/70 to-black/40"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', background: 'linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7), rgba(0,0,0,0.4))' }}
+          />
         </div>
       ) : (
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
+        <div 
+          className="absolute top-0 left-0 w-full h-full z-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
+        />
       )}
 
       {/* Central News Content overlaid on background image */}
       <div className="relative z-10 my-auto py-12 px-4 md:px-12 space-y-4 max-w-5xl animate-in fade-in duration-500">
-        {currentItem?.pubDate && (
-          <span className="inline-block bg-blue-600/90 backdrop-blur-md border border-blue-400/40 text-white font-mono text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-lg">
-            {currentItem.pubDate}
-          </span>
-        )}
-
         <h1 
           className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,1)]"
           style={{ color: '#ffffff', textShadow: '0 4px 16px rgba(0,0,0,1)' }}

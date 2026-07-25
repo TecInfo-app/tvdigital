@@ -35,6 +35,45 @@ import {
   INITIAL_LOGS 
 } from './mockData';
 
+// Helper to compress local image files before uploading so they stay well under Firestore's 1MB limit
+const compressImageFile = (file: File, maxWidth = 1280, maxHeight = 720, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedDataUrl);
+        } else {
+          resolve(event.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(event.target?.result as string);
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function App() {
   // Navigation screen mode: 'menu' | 'config' | 'report' | 'players' | 'playlists' | 'schedules' | 'analytics' | 'dashboard' | 'player'
   const [screen, setScreen] = useState<string>('menu');
@@ -980,11 +1019,17 @@ export default function App() {
                 <input 
                   type="file" 
                   accept={inputType.includes('video') ? 'video/*' : 'image/*'}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     if (e.target.files && e.target.files[0]) {
-                      const reader = new FileReader();
-                      reader.onload = () => setFileData(reader.result as string);
-                      reader.readAsDataURL(e.target.files[0]);
+                      const file = e.target.files[0];
+                      if (file.type.startsWith('image/') || inputType.includes('img')) {
+                        const compressed = await compressImageFile(file);
+                        setFileData(compressed);
+                      } else {
+                        const reader = new FileReader();
+                        reader.onload = () => setFileData(reader.result as string);
+                        reader.readAsDataURL(file);
+                      }
                     }
                   }}
                   style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px' }}
