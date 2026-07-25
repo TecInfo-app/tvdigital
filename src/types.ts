@@ -6,11 +6,17 @@
 export interface MediaItem {
   id: string;
   name: string;
-  url: string;
-  duration: number; // in seconds
-  schedule: string; // e.g. "M, T, W, T, F", "Always On", "Weekend"
-  type: 'video' | 'image' | 'widget';
-  active: boolean;
+  url?: string;
+  content?: string;
+  duration?: number; // in seconds
+  schedule?: string;
+  type: string; // 'video_url' | 'img_url' | 'widget' | 'upload_video' | 'upload_img' | 'video' | 'image'
+  active?: boolean;
+  order?: number;
+  start?: string;
+  end?: string;
+  days?: number[];
+  userId?: string;
   items?: Array<{ title: string; description: string; thumbnail?: string; pubDate?: string; showTitle?: boolean; showDescription?: boolean }>;
 }
 
