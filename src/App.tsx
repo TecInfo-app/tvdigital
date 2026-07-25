@@ -509,17 +509,13 @@ export default function App() {
       }
     }
 
-    const mediaType: 'video' | 'image' | 'widget' = 
-      inputType.includes('video') ? 'video' : 
-      inputType === 'widget' || inputType === 'rss' ? 'widget' : 'image';
-
     const newMediaItem: MediaItem = {
       id: newDocId || `media-${Date.now()}`,
       name: propName.trim(),
       url: content || '',
       content: content || '',
       duration: dur,
-      type: mediaType,
+      type: inputType as any,
       schedule: 'Always On',
       active: true,
       start: startDate || '',
@@ -548,6 +544,7 @@ export default function App() {
     setPropDuration("");
     setPropUrl("");
     setFileData("");
+    setInputType("upload_img");
     setStartDate("");
     setEndDate("");
     setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
@@ -557,8 +554,19 @@ export default function App() {
     setEditingId(item.id);
     setPropName(item.name);
     setPropDuration(item.duration !== undefined && item.duration !== null ? item.duration : "");
-    setInputType(item.type || 'video_url');
+    
+    let mappedType = item.type || 'upload_img';
+    if (mappedType === 'image') mappedType = 'img_url';
+    if (mappedType === 'video') mappedType = 'video_url';
+    
+    const contentStr = item.content || item.url || '';
+    if (contentStr.startsWith('data:image/')) mappedType = 'upload_img';
+    else if (contentStr.startsWith('data:video/')) mappedType = 'upload_video';
+    else if (contentStr.includes('rss') || contentStr.includes('xml')) mappedType = 'rss';
+
+    setInputType(mappedType);
     setPropUrl(item.content || item.url || "");
+    setFileData(contentStr.startsWith('data:') ? contentStr : "");
     setStartDate(item.start || "");
     setEndDate(item.end || "");
     setSelectedDays(item.days || [0, 1, 2, 3, 4, 5, 6]);
@@ -1324,33 +1332,43 @@ export default function App() {
           </button>
 
           <div id="displayArea" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            {currentMedia ? (
-              currentMedia.type?.includes('video') ? (
-                <video 
-                  key={currentMedia.id + '-' + playIdx}
-                  src={currentMedia.content || currentMedia.url}
-                  autoPlay
-                  muted
-                  playsInline
-                  onEnded={handleVideoEnded}
-                  onError={handleVideoEnded}
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
-                />
-              ) : currentMedia.type === 'widget' || currentMedia.type === 'rss' || currentMedia.type === 'web' || !(/\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(currentMedia.content || currentMedia.url || '')) ? (
+            {currentMedia ? (() => {
+              const contentStr = currentMedia.content || currentMedia.url || '';
+              const isVideo = currentMedia.type?.includes('video') || contentStr.startsWith('data:video/') || /\.(mp4|webm|mkv|mov)(\?.*)?$/i.test(contentStr);
+              const isImage = currentMedia.type?.includes('img') || currentMedia.type === 'image' || contentStr.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif|svg|bmp)(\?.*)?$/i.test(contentStr);
+
+              if (isVideo) {
+                return (
+                  <video 
+                    key={currentMedia.id + '-' + playIdx}
+                    src={contentStr}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={handleVideoEnded}
+                    onError={handleVideoEnded}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
+                  />
+                );
+              }
+              if (isImage) {
+                return (
+                  <img 
+                    key={currentMedia.id + '-' + playIdx}
+                    src={contentStr}
+                    alt={currentMedia.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none', background: '#000' }}
+                  />
+                );
+              }
+              return (
                 <WidgetRenderer 
                   key={currentMedia.id + '-' + playIdx}
-                  url={currentMedia.content || currentMedia.url} 
+                  url={contentStr} 
                   name={currentMedia.name} 
                 />
-              ) : (
-                <img 
-                  key={currentMedia.id + '-' + playIdx}
-                  src={currentMedia.content || currentMedia.url}
-                  alt={currentMedia.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none', background: '#000' }}
-                />
-              )
-            ) : (
+              );
+            })() : (
               <div style={{ color: 'white', fontWeight: 'bold' }}>Aguardando mídia...</div>
             )}
           </div>
