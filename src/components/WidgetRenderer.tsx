@@ -200,8 +200,13 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     );
   }
 
+  // Clean display title for header badge
+  const displayTitle = (feedTitle || name || 'NOTÍCIAS')
+    .replace(/feed\s*convertido\s*de:\s*/gi, '@')
+    .trim();
+
   return (
-    <div className={`w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between text-gray-900 p-8 md:p-14 select-none ${className}`}>
+    <div className={`w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between text-white p-8 md:p-14 select-none ${className}`}>
       
       {/* Background Image filling the entire container */}
       {currentItem?.thumbnail ? (
@@ -212,33 +217,52 @@ export default function WidgetRenderer({ url, name, className = "", items: items
             className="w-full h-full object-cover scale-105 transition-transform duration-[15000ms] ease-out"
             referrerPolicy="no-referrer"
           />
-          {/* Smooth dark gradient overlay for optimal text readability */}
-          <div className="absolute inset-0" />
+          {/* Dark gradient overlay for ideal contrast & tone */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/70 to-black/40" />
         </div>
       ) : (
-        <div className="absolute inset-0 z-0" />
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
       )}
 
+      {/* Header Watermark */}
+      <div className="relative z-10 flex justify-between items-center">
+        <span className="inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/20 text-white font-mono text-[11px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-2xl">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          {displayTitle}
+        </span>
+      </div>
+
       {/* Central News Content overlaid on background image */}
-      <div className="relative z-10 my-auto py-12 px-6 md:px-16 space-y-4 max-w-5xl animate-in fade-in duration-500">
+      <div className="relative z-10 my-auto py-12 px-4 md:px-12 space-y-4 max-w-5xl animate-in fade-in duration-500">
         {currentItem?.pubDate && (
-          <span className="inline-block bg-black/40 backdrop-blur-md border border-gray-200 text-gray-500 font-mono-data text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
+          <span className="inline-block bg-blue-600/90 backdrop-blur-md border border-blue-400/40 text-white font-mono text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-lg">
             {currentItem.pubDate}
           </span>
         )}
 
-        {(currentItem?.showTitle !== false) && (
-          <h1 className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-gray-900 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
-            {currentItem?.title || 'Buscando matérias do feed...'}
-          </h1>
-        )}
+        <h1 className="font-montserrat font-black text-2xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,1)]">
+          {currentItem?.title || 'Buscando matérias do feed...'}
+        </h1>
 
-        {(currentItem?.showDescription !== false) && (
-          <p className="font-inter text-sm md:text-base lg:text-lg text-gray-500 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] pt-2">
-            {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
-          </p>
-        )}
+        <p className="font-inter text-sm md:text-base lg:text-xl text-slate-200 leading-relaxed font-normal tracking-wide max-w-4xl drop-shadow-[0_2px_10px_rgba(0,0,0,1)] pt-2">
+          {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
+        </p>
       </div>
+
+      {/* Footer Navigation Dots */}
+      {items.length > 1 && (
+        <div className="relative z-10 flex justify-between items-center text-xs text-slate-300 border-t border-white/20 pt-4 bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl">
+          <span className="font-medium text-white/90">Slide {currentIndex + 1} de {items.length}</span>
+          <div className="flex gap-1.5">
+            {items.map((_, idx) => (
+              <div 
+                key={idx}
+                className={`h-2 rounded-full transition-all duration-500 ${idx === currentIndex ? 'w-8 bg-blue-500' : 'w-2 bg-white/40'}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -13,8 +13,9 @@ import {
   writeBatch,
   getDocFromServer
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType, cleanUndefined } from './firebase';
+import { auth, db, handleFirestoreError, OperationType, cleanUndefined, getApiUrl } from './firebase';
 import { safeLocalStorage } from './utils/safeStorage';
+import { clientSideScrape } from './utils/scraper';
 
 import DashboardView from './components/DashboardView';
 import PlayersView from './components/PlayersView';
@@ -23,6 +24,7 @@ import PlaylistsView from './components/PlaylistsView';
 import SchedulesView from './components/SchedulesView';
 import AnalyticsView from './components/AnalyticsView';
 import LivePlayerModal from './components/LivePlayerModal';
+import WidgetRenderer from './components/WidgetRenderer';
 import Auth from './components/Auth';
 
 import { MediaItem, Player, Playlist, LogEntry } from './types';
@@ -62,6 +64,61 @@ export default function App() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedDays, setSelectedDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+
+  // RSS Modal & Preview states
+  const [isRssModalOpen, setIsRssModalOpen] = useState(false);
+  const [rssUrlInput, setRssUrlInput] = useState('https://g1.globo.com/rss/g1/');
+  const [rssPresetName, setRssPresetName] = useState('G1 - Notícias Globais');
+  const [rssLoading, setRssLoading] = useState(false);
+  const [rssPreviewItems, setRssPreviewItems] = useState<Array<{ title: string; description: string; thumbnail?: string; pubDate?: string }>>([
+    {
+      title: 'Mercado Financeiro: Bolsa opera em alta impulsionada por inovação',
+      description: 'Fluxo forte de investimento e otimismo no setor tecnológico impulsionam o mercado local.',
+      thumbnail: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200',
+      pubDate: 'Hoje, 11:30'
+    },
+    {
+      title: 'Inovação em Transmissão Digital e Mídia indoor',
+      description: 'Novas diretrizes promovem eficiência e alta definição na exibição de conteúdo corporativo.',
+      thumbnail: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200',
+      pubDate: 'Hoje, 09:15'
+    }
+  ]);
+  const [rssPreviewIdx, setRssPreviewIdx] = useState(0);
+
+  const fetchRssFeed = async (targetUrl: string) => {
+    if (!targetUrl.trim()) return;
+    setRssLoading(true);
+    const formattedUrl = targetUrl.trim();
+    const apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(formattedUrl)}`);
+    
+    try {
+      const res = await fetch(apiUrl);
+      if (!res.ok) throw new Error("Backend offline");
+      const data = await res.json();
+      if (data.status === 'ok' && data.items && data.items.length > 0) {
+        setRssPreviewItems(data.items);
+        setRssPreviewIdx(0);
+        showToast(`${data.items.length} notícias obtidas do RSS!`);
+      } else {
+        throw new Error("Formato inválido do backend");
+      }
+    } catch (err) {
+      try {
+        const scraped = await clientSideScrape(formattedUrl);
+        if (scraped.status === 'ok' && scraped.items && scraped.items.length > 0) {
+          setRssPreviewItems(scraped.items);
+          setRssPreviewIdx(0);
+          showToast(`${scraped.items.length} notícias obtidas com sucesso!`);
+        }
+      } catch (scrapeErr) {
+        console.warn("[RSS Fetch Notice]", scrapeErr);
+        showToast("Exibindo pré-visualização de Notícias RSS.");
+      }
+    } finally {
+      setRssLoading(false);
+    }
+  };
 
   // Dropbox Converter states
   const [dropIn, setDropIn] = useState('');
@@ -293,7 +350,7 @@ export default function App() {
       });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${uid}/media_items`);
+      console.warn("Syncing media items notice:", error);
     }
   };
 
@@ -309,7 +366,7 @@ export default function App() {
       });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${uid}/players`);
+      console.warn("Syncing players notice:", error);
     }
   };
 
@@ -325,7 +382,7 @@ export default function App() {
       });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${uid}/playlists`);
+      console.warn("Syncing playlists notice:", error);
     }
   };
 
@@ -357,11 +414,11 @@ export default function App() {
   // Save Media in Firestore 'playlist'
   const handleSaveMedia = async () => {
     if (!propName.trim()) {
-      alert("Insira o nome");
+      alert("Por favor, insira o nome da mídia.");
       return;
     }
 
-    let content = propUrl;
+    let content = propUrl.trim();
     if (inputType.startsWith('upload')) {
       if (!fileData && !editingId) {
         alert("Selecione um arquivo para upload");
@@ -372,60 +429,78 @@ export default function App() {
       }
     }
 
-    const dur = propDuration !== '' ? Number(propDuration) : null;
+    if (!content && inputType !== 'rss') {
+      alert("Insira a URL ou arquivo de mídia.");
+      return;
+    }
 
+    const dur = propDuration !== '' && propDuration !== null && !isNaN(Number(propDuration)) ? Number(propDuration) : 10;
+    const currentUid = user?.uid || auth.currentUser?.uid || 'local-user';
+
+    const rawData = {
+      name: propName.trim(),
+      content: content || '',
+      type: inputType,
+      duration: dur,
+      start: startDate || '',
+      end: endDate || '',
+      days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
+      userId: currentUid,
+      updatedAt: new Date().toISOString()
+    };
+
+    let newDocId = editingId;
+
+    // Save to Firestore 'playlist' collection with fallback
     try {
       if (editingId) {
-        await updateDoc(doc(db, "playlist", editingId), {
-          name: propName,
-          content,
-          type: inputType,
-          duration: dur,
-          start: startDate,
-          end: endDate,
-          days: selectedDays
-        });
-        showToast("Alterações salvas!");
+        await updateDoc(doc(db, "playlist", editingId), cleanUndefined(rawData));
       } else {
         const nextOrder = firestorePlaylist.length > 0 ? Math.max(...firestorePlaylist.map(i => i.order || 0)) + 1 : 1;
-        await addDoc(collection(db, "playlist"), {
-          name: propName,
-          content,
-          type: inputType,
-          order: nextOrder,
-          start: startDate,
-          end: endDate,
-          userId: user?.uid || '',
-          duration: dur,
-          days: selectedDays
-        });
-        showToast("Mídia salva!");
+        const docRef = await addDoc(collection(db, "playlist"), cleanUndefined({
+          ...rawData,
+          order: nextOrder
+        }));
+        newDocId = docRef.id;
       }
-
-      // Also sync to mediaItems state for components
-      const newMediaItem: MediaItem = {
-        id: editingId || `media-${Date.now()}`,
-        name: propName,
-        url: content,
-        content: content,
-        duration: dur || 10,
-        type: inputType.includes('video') ? 'video' : inputType === 'widget' ? 'widget' : 'image',
-        schedule: 'Always On',
-        active: true,
-        order: firestorePlaylist.length + 1
-      };
-      
-      if (!editingId) {
-        handleSetMediaItems([...mediaItems, newMediaItem]);
-      } else {
-        handleSetMediaItems(mediaItems.map(m => m.id === editingId ? { ...m, name: propName, url: content, content } : m));
+    } catch (firestoreErr) {
+      console.warn("[Media Save] Firestore sync notice (saving to local state):", firestoreErr);
+      if (!newDocId) {
+        newDocId = `media-${Date.now()}`;
       }
-
-      resetForm();
-    } catch (err) {
-      console.error(err);
-      showToast("Erro ao salvar mídia");
     }
+
+    const mediaType: 'video' | 'image' | 'widget' = 
+      inputType.includes('video') ? 'video' : 
+      inputType === 'widget' || inputType === 'rss' ? 'widget' : 'image';
+
+    const newMediaItem: MediaItem = {
+      id: newDocId || `media-${Date.now()}`,
+      name: propName.trim(),
+      url: content || '',
+      content: content || '',
+      duration: dur,
+      type: mediaType,
+      schedule: 'Always On',
+      active: true,
+      start: startDate || '',
+      end: endDate || '',
+      days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
+      order: firestorePlaylist.length + 1
+    };
+    
+    // Immediate UI update
+    if (!editingId) {
+      setFirestorePlaylist(prev => [...prev, newMediaItem]);
+      handleSetMediaItems([...mediaItems, newMediaItem]);
+      showToast("Mídia salva com sucesso!");
+    } else {
+      setFirestorePlaylist(prev => prev.map(m => m.id === editingId ? { ...m, ...newMediaItem } : m));
+      handleSetMediaItems(mediaItems.map(m => m.id === editingId ? { ...m, ...newMediaItem } : m));
+      showToast("Alterações salvas com sucesso!");
+    }
+
+    resetForm();
   };
 
   const resetForm = () => {
@@ -451,30 +526,68 @@ export default function App() {
   };
 
   const deleteItem = async (id: string) => {
-    if (confirm("Excluir?")) {
+    if (confirm("Deseja excluir esta mídia?")) {
+      // Immediate local state update for zero latency
+      setFirestorePlaylist(prev => prev.filter(m => m.id !== id));
+      setMediaItems(prev => prev.filter(m => m.id !== id));
+
+      if (editingId === id) {
+        resetForm();
+      }
+
+      showToast("Mídia excluída!");
+
+      // Async Firestore cleanup
       try {
         await deleteDoc(doc(db, "playlist", id));
-        handleSetMediaItems(mediaItems.filter(m => m.id !== id));
-        showToast("Mídia excluída!");
       } catch (err) {
-        console.error(err);
+        console.warn("[Delete notice - playlist]:", err);
+      }
+
+      if (user?.uid) {
+        try {
+          await deleteDoc(doc(db, "users", user.uid, "media_items", id));
+        } catch (err) {
+          console.warn("[Delete notice - media_items]:", err);
+        }
       }
     }
   };
 
   const reorder = async (idx: number, dir: number) => {
+    const list = firestorePlaylist.length > 0 ? [...firestorePlaylist] : [...mediaItems];
     const target = idx + dir;
-    if (target < 0 || target >= firestorePlaylist.length) return;
-    const current = firestorePlaylist[idx];
-    const next = firestorePlaylist[target];
-    const oldOrder = current.order || 0;
-    const nextOrder = next.order || 0;
+    if (target < 0 || target >= list.length) return;
 
+    // Swap items in local array
+    const temp = list[idx];
+    list[idx] = list[target];
+    list[target] = temp;
+
+    // Re-index order property sequentially to ensure unique order values
+    const reorderedList = list.map((item, index) => ({
+      ...item,
+      order: index + 1
+    }));
+
+    // Update local React states immediately for instant UI re-ordering
+    setFirestorePlaylist(reorderedList);
+    setMediaItems(reorderedList);
+
+    // Sync order changes to Firestore asynchronously
     try {
-      await updateDoc(doc(db, "playlist", current.id), { order: nextOrder });
-      await updateDoc(doc(db, "playlist", next.id), { order: oldOrder });
+      const updates = reorderedList.map(async (item) => {
+        if (item.id && !item.id.startsWith('media-')) {
+          try {
+            await updateDoc(doc(db, "playlist", item.id), { order: item.order });
+          } catch (e) {
+            // ignore
+          }
+        }
+      });
+      await Promise.all(updates);
     } catch (err) {
-      console.error(err);
+      console.warn("[Reorder sync notice]:", err);
     }
   };
 
@@ -845,14 +958,21 @@ export default function App() {
             <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TIPO DE MÍDIA</label>
             <select 
               value={inputType}
-              onChange={(e) => setInputType(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setInputType(val);
+                if (val === 'rss' && !propUrl) {
+                  setPropUrl('https://g1.globo.com/rss/g1/');
+                }
+              }}
               style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box', background: 'white' }}
             >
-              <option value="video_url">URL de Vídeo (Dropbox)</option>
-              <option value="img_url">URL de Imagem (Dropbox)</option>
-              <option value="widget">Widget / Site</option>
-              <option value="upload_video">Upload Local VÍDEO</option>
-              <option value="upload_img">Upload Local IMAGEM</option>
+              <option value="rss">🗞️ Feed RSS / Notícias</option>
+              <option value="video_url">📹 URL de Vídeo (Dropbox)</option>
+              <option value="img_url">🖼️ URL de Imagem (Dropbox)</option>
+              <option value="widget">🌐 Widget / Site / Clima</option>
+              <option value="upload_video">📁 Upload Local VÍDEO</option>
+              <option value="upload_img">📁 Upload Local IMAGEM</option>
             </select>
 
             {inputType.startsWith('upload') ? (
@@ -869,6 +989,33 @@ export default function App() {
                   }}
                   style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px' }}
                 />
+              </div>
+            ) : inputType === 'rss' ? (
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', display: 'block', marginBottom: '4px' }}>
+                  URL DO FEED RSS (XML OU NOTÍCIAS)
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="url" 
+                    value={propUrl}
+                    onChange={(e) => setPropUrl(e.target.value)}
+                    placeholder="https://g1.globo.com/rss/g1/"
+                    style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = propUrl || 'https://g1.globo.com/rss/g1/';
+                      setRssUrlInput(target);
+                      fetchRssFeed(target);
+                      setIsRssModalOpen(true);
+                    }}
+                    style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', padding: '0 16px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    ⚡ Abrir Menu / Editar RSS
+                  </button>
+                </div>
               </div>
             ) : (
               <div>
@@ -1144,12 +1291,11 @@ export default function App() {
                   onError={handleVideoEnded}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
                 />
-              ) : currentMedia.type === 'widget' ? (
-                <iframe 
+              ) : currentMedia.type === 'widget' || currentMedia.type === 'rss' || (currentMedia.content || currentMedia.url || '').toLowerCase().includes('rss') || (currentMedia.content || currentMedia.url || '').toLowerCase().includes('xml') ? (
+                <WidgetRenderer 
                   key={currentMedia.id + '-' + playIdx}
-                  src={currentMedia.content || currentMedia.url}
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
-                  title={currentMedia.name}
+                  url={currentMedia.content || currentMedia.url} 
+                  name={currentMedia.name} 
                 />
               ) : (
                 <img 
@@ -1219,6 +1365,173 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* RSS Config & Preview Modal */}
+      {isRssModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: 'white', padding: '25px', borderRadius: '20px', border: '1px solid #cbd5e1', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🗞️</span>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Configuração & Pré-visualização de Feed RSS</h3>
+              </div>
+              <button 
+                onClick={() => setIsRssModalOpen(false)}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontWeight: 'bold', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Presets Bar */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', display: 'block', marginBottom: '6px' }}>FEEDS POPULARES PRÉ-CONFIGURADOS:</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {[
+                  { name: 'G1 Brasil', url: 'https://g1.globo.com/rss/g1/' },
+                  { name: 'Globo Esporte', url: 'https://ge.globo.com/rss/ge/' },
+                  { name: 'Economia & Mercado', url: 'https://valor.globo.com/rss/valor/' },
+                  { name: 'Tecnoblog', url: 'https://tecnoblog.net/feed/' }
+                ].map((preset) => (
+                  <button
+                    key={preset.url}
+                    type="button"
+                    onClick={() => {
+                      setRssUrlInput(preset.url);
+                      setRssPresetName(preset.name);
+                      fetchRssFeed(preset.url);
+                    }}
+                    style={{
+                      background: rssUrlInput === preset.url ? '#2563eb' : '#f8fafc',
+                      color: rssUrlInput === preset.url ? 'white' : '#334155',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Feed URL input */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>URL DO FEED RSS OU SITE DE NOTÍCIAS:</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="url"
+                  value={rssUrlInput}
+                  onChange={(e) => setRssUrlInput(e.target.value)}
+                  placeholder="https://g1.globo.com/rss/g1/"
+                  style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fetchRssFeed(rssUrlInput)}
+                  style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', padding: '0 16px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                >
+                  {rssLoading ? "Buscando..." : "🔎 Buscar"}
+                </button>
+              </div>
+            </div>
+
+            {/* Live RSS Preview Card */}
+            <div style={{ background: '#0f172a', borderRadius: '12px', padding: '16px', color: 'white', marginBottom: '20px', minHeight: '220px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#60a5fa', letterSpacing: '1px' }}>
+                  PRÉ-VISUALIZAÇÃO DA NOTÍCIA ({rssPreviewIdx + 1}/{rssPreviewItems.length || 1})
+                </span>
+                <span style={{ fontSize: '11px', background: '#1e293b', padding: '2px 8px', borderRadius: '4px', color: '#94a3b8' }}>
+                  {rssPreviewItems[rssPreviewIdx]?.pubDate || 'Hoje'}
+                </span>
+              </div>
+
+              {rssLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
+                  <div style={{ width: '32px', height: '32px', border: '3px solid #60a5fa', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  <span style={{ marginTop: '12px', fontSize: '13px', color: '#94a3b8' }}>Carregando matérias do RSS...</span>
+                </div>
+              ) : rssPreviewItems.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: rssPreviewItems[rssPreviewIdx]?.thumbnail ? '120px 1fr' : '1fr', gap: '15px', alignItems: 'center' }}>
+                  {rssPreviewItems[rssPreviewIdx]?.thumbnail && (
+                    <img 
+                      src={rssPreviewItems[rssPreviewIdx].thumbnail} 
+                      alt="Thumbnail"
+                      style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #334155' }}
+                    />
+                  )}
+                  <div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: 700, color: '#f8fafc', lineHeight: 1.3 }}>
+                      {rssPreviewItems[rssPreviewIdx].title}
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {rssPreviewItems[rssPreviewIdx].description}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px', margin: '30px 0' }}>Nenhuma notícia encontrada nesta URL.</p>
+              )}
+
+              {/* Slider Navigation */}
+              {rssPreviewItems.length > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px', paddingTop: '10px', borderTop: '1px solid #1e293b' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRssPreviewIdx(prev => (prev > 0 ? prev - 1 : rssPreviewItems.length - 1))}
+                    style={{ background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', cursor: 'pointer' }}
+                  >
+                    ◀ Anterior
+                  </button>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Troca automática a cada 15s na TV</span>
+                  <button
+                    type="button"
+                    onClick={() => setRssPreviewIdx(prev => (prev < rssPreviewItems.length - 1 ? prev + 1 : 0))}
+                    style={{ background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', cursor: 'pointer' }}
+                  >
+                    Próxima ▶
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsRssModalOpen(false)}
+                style={{ padding: '12px 20px', border: '1px solid #cbd5e1', borderRadius: '10px', background: '#f8fafc', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPropUrl(rssUrlInput);
+                  setInputType('rss');
+                  if (!propName) {
+                    setPropName(rssPresetName || 'Feed RSS - Notícias');
+                  }
+                  if (!propDuration) {
+                    setPropDuration(15);
+                  }
+                  setIsRssModalOpen(false);
+                  showToast("Feed RSS configurado!");
+                }}
+                style={{ padding: '12px 24px', border: 'none', borderRadius: '10px', background: '#10b981', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}
+              >
+                ✅ Salvar & Aplicar Feed RSS
+              </button>
+            </div>
+
           </div>
         </div>
       )}

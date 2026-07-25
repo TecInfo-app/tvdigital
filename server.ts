@@ -261,7 +261,7 @@ async function startServer() {
       return res.json({
         status: "ok",
         feed: {
-          title: `Feed Convertido de: ${new URL(formattedUrl).hostname}`,
+          title: `@${new URL(formattedUrl).hostname.replace(/^www\./i, '')}`,
           link: formattedUrl,
           description: "Feed gerado dinamicamente via Conversor Smart RSS integrado"
         },
