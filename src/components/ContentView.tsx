@@ -1098,14 +1098,6 @@ export default function ContentView({
                         <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 to-black" />
                       )}
 
-                      {/* Top Bar */}
-                      <div className="relative z-10 flex justify-between items-center bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-white/20">
-                        <span className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider font-montserrat">
-                          {mediaName || 'Feed de Notícias'}
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-mono-data">● Ao Vivo</span>
-                      </div>
-
                       {/* Content */}
                       <div className="relative z-10 my-auto py-2 space-y-2">
                         {(previewItems[activePreviewIndex]?.showTitle !== false) && (
@@ -1118,21 +1110,6 @@ export default function ContentView({
                             {previewItems[activePreviewIndex]?.description}
                           </p>
                         )}
-                      </div>
-
-                      {/* Footer Dots */}
-                      <div className="relative z-10 flex justify-between items-center text-[10px] text-slate-300 pt-2 border-t border-white/20">
-                        <span>Slide {activePreviewIndex + 1} de {previewItems.length}</span>
-                        <div className="flex gap-1">
-                          {previewItems.map((_, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setActivePreviewIndex(idx)}
-                              className={`w-1.5 h-1.5 rounded-full ${idx === activePreviewIndex ? 'bg-[#f59e0b] w-3' : 'bg-white/40'}`}
-                            />
-                          ))}
-                        </div>
                       </div>
                     </div>
                   </div>

@@ -224,14 +224,6 @@ export default function WidgetRenderer({ url, name, className = "", items: items
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
       )}
 
-      {/* Header Watermark */}
-      <div className="relative z-10 flex justify-between items-center">
-        <span className="inline-flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/20 text-white font-mono text-[11px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-2xl">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          {displayTitle}
-        </span>
-      </div>
-
       {/* Central News Content overlaid on background image */}
       <div className="relative z-10 my-auto py-12 px-4 md:px-12 space-y-4 max-w-5xl animate-in fade-in duration-500">
         {currentItem?.pubDate && (
@@ -248,21 +240,6 @@ export default function WidgetRenderer({ url, name, className = "", items: items
           {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
         </p>
       </div>
-
-      {/* Footer Navigation Dots */}
-      {items.length > 1 && (
-        <div className="relative z-10 flex justify-between items-center text-xs text-slate-300 border-t border-white/20 pt-4 bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl">
-          <span className="font-medium text-white/90">Slide {currentIndex + 1} de {items.length}</span>
-          <div className="flex gap-1.5">
-            {items.map((_, idx) => (
-              <div 
-                key={idx}
-                className={`h-2 rounded-full transition-all duration-500 ${idx === currentIndex ? 'w-8 bg-blue-500' : 'w-2 bg-white/40'}`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
 
     </div>
   );
