@@ -27,11 +27,9 @@ import {
   LayoutDashboard, 
   LogOut, 
   Search, 
-  Bell, 
   ArrowLeft,
   Activity,
-  User,
-  Sparkles
+  User
 } from 'lucide-react';
 
 import { MediaItem, Player, Playlist, LogEntry } from './types';
@@ -43,9 +41,7 @@ import {
 } from './mockData';
 
 export default function App() {
-  // Navigation tabs state: 'home' is the main screen showing side-by-side menu cards
   const [activeTab, setActiveTab] = useState<string>('home'); 
-  const [activeSubTab, setActiveSubTab] = useState<'health' | 'alerts'>('health');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Authentication State
@@ -63,7 +59,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Live monitor slideshow loop tracker
-  const [currentPlayingIndex, setCurrentPlayingIndex] = useState(0);
+  const [currentPlayingIndex] = useState(0);
 
   // Player / Ads Playback Modal state
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
@@ -118,11 +114,10 @@ export default function App() {
     safeLocalStorage.setItem('tv_box_mode', enableTvBoxMode ? 'true' : 'false');
     setIsTvBoxMode(enableTvBoxMode);
     
-    showToast('Configurações salvas com sucesso.');
+    showToast('Configurações salvas.');
     setIsSettingsOpen(false);
   };
 
-  // Verify connection to Firestore on initial boot
   useEffect(() => {
     async function testConnection() {
       try {
@@ -136,13 +131,12 @@ export default function App() {
     testConnection();
   }, []);
 
-  // Firebase auth state observer and data synchronizer
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         setLoadingData(true);
-        const uid = currentUser.uid;
+        const uid = currentUser.uid; me
         
         let didTimeOutOrResolve = false;
 
@@ -168,7 +162,7 @@ export default function App() {
           }
 
           setLoadingData(false);
-          showToast("Acesso rápido ativado (Modo Desempenho Local)");
+          showToast("Acesso rápido ativado");
         }, 3500);
 
         try {
@@ -259,7 +253,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync state helpers
   const handleSetMediaItems = async (update: MediaItem[] | ((prev: MediaItem[]) => MediaItem[])) => {
     const nextItems = typeof update === 'function' ? update(mediaItems) : update;
     setMediaItems(nextItems); 
@@ -368,15 +361,13 @@ export default function App() {
     }
   };
 
-  // Toast feedback trigger helper
   const showToast = (message: string) => {
     setToastMessage(message);
     setTimeout(() => {
       setToastMessage(null);
-    }, 4000);
+    }, 3000);
   };
 
-  // Switch Active Playlist
   const handleSelectPlaylist = (playlistId: string) => {
     const updatedPlaylists = playlists.map(pl => ({
       ...pl,
@@ -386,11 +377,10 @@ export default function App() {
 
     const selected = playlists.find(p => p.id === playlistId);
     if (selected) {
-      showToast(`Carregando playlist "${selected.name}"...`);
+      showToast(`Playlist ativa: ${selected.name}`);
     }
   };
 
-  // Create Playlist
   const handleCreatePlaylist = (name: string) => {
     const newPl: Playlist = {
       id: `playlist-${Date.now()}`,
@@ -402,14 +392,13 @@ export default function App() {
     
     const newLog: LogEntry = {
       id: `log-${Date.now()}`,
-      action: `Nova playlist cadastrada: "${name}"`,
+      action: `Nova playlist: "${name}"`,
       time: 'Agora'
     };
     handleSetLogs([newLog, ...logs]);
-    showToast(`Playlist "${name}" criada com sucesso.`);
+    showToast(`Playlist "${name}" criada.`);
   };
 
-  // Add media asset to currently active list
   const handleAddMedia = (newItem: Omit<MediaItem, 'id' | 'active'>) => {
     const itemWithId: MediaItem = {
       ...newItem,
@@ -420,76 +409,65 @@ export default function App() {
 
     const newLog: LogEntry = {
       id: `log-${Date.now()}`,
-      action: `Adicionado asset "${newItem.name}"`,
+      action: `Adicionada mídia "${newItem.name}"`,
       time: 'Agora'
     };
     handleSetLogs([newLog, ...logs]);
-    showToast(`Arquivo "${newItem.name}" adicionado à playlist.`);
+    showToast(`Mídia "${newItem.name}" adicionada.`);
   };
 
-  // Deploy all changes to active TV screens
   const handleDeployAll = () => {
-    showToast("✓ Publicando alterações em todos os displays...");
+    showToast("Publicando alterações em todos os exibições...");
     
     const newLog: LogEntry = {
       id: `log-${Date.now()}`,
-      action: 'Deploy global acionado.',
+      action: 'Publicação global acionada.',
       time: 'Agora'
     };
     handleSetLogs([newLog, ...logs]);
-
     handleSetPlayers(players.map(p => ({ ...p, status: 'online', cpu: 25, lastSync: '1s atrás' })));
   };
 
-  // Player actions
   const handlePlayerAction = (id: string, action: 'reboot' | 'sync') => {
     const targetPlayer = players.find(p => p.id === id);
     if (!targetPlayer) return;
 
     if (action === 'reboot') {
-      showToast(`Reiniciando "${targetPlayer.name}"...`);
-      setTimeout(() => {
-        showToast(`Display "${targetPlayer.name}" reiniciado com sucesso.`);
-      }, 3000);
+      showToast(`Reiniciando ${targetPlayer.name}...`);
     } else {
-      showToast(`Sincronizando "${targetPlayer.name}"...`);
+      showToast(`Sincronizando ${targetPlayer.name}...`);
     }
   };
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      showToast('Desconectado com sucesso.');
+      showToast('Sessão encerrada.');
     } catch (err) {
       console.error(err);
-      showToast('Falha ao desconectar.');
+      showToast('Erro ao sair.');
     }
   };
 
-  // Open Fullscreen Ads Reproducer directly
   const handleOpenPlayer = (player?: Player) => {
     setSimulatorPlayer(player ? player.name : 'TELA-PRINCIPAL-01');
     setIsSimulatorOpen(true);
   };
 
-  // Loading Screen
   if (authLoading || loadingData) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-4 text-white">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-blue-500/20">
-          <Tv className="w-7 h-7 text-white" />
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center gap-3 text-white">
+        <div className="w-12 h-12 bg-blue-600 flex items-center justify-center rounded">
+          <Tv className="w-6 h-6 text-white" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-sm font-bold text-gray-300">
           <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-          <span className="text-xs font-bold tracking-wider text-gray-400 uppercase">
-            Carregando FastPlayer...
-          </span>
+          <span>Carregando FastPlayer...</span>
         </div>
       </div>
     );
   }
 
-  // Not Authenticated screen
   if (!user) {
     return <Auth onSuccess={() => {}} />;
   }
@@ -499,12 +477,11 @@ export default function App() {
     player.ip.includes(searchQuery)
   );
 
-  // Menu cards list for side-by-side display
   const menuItems = [
     {
       id: 'play-ads',
       title: 'Reproduzir Propagandas',
-      subtitle: 'Iniciar exibição de mídias e anúncios em tela cheia agora',
+      subtitle: 'Iniciar exibição de anúncios em tela cheia',
       icon: Play,
       isPrimary: true,
       onClick: () => handleOpenPlayer()
@@ -512,7 +489,7 @@ export default function App() {
     {
       id: 'content',
       title: 'Mídias e Anúncios',
-      subtitle: 'Cadastrar vídeos, imagens, notícias e páginas web',
+      subtitle: 'Cadastrar vídeos, imagens e notícias',
       icon: Film,
       isPrimary: false,
       onClick: () => setActiveTab('content')
@@ -520,7 +497,7 @@ export default function App() {
     {
       id: 'playlists',
       title: 'Playlists',
-      subtitle: 'Organizar a ordem e duração da reprodução',
+      subtitle: 'Organizar ordem e tempo de exibição',
       icon: ListVideo,
       isPrimary: false,
       onClick: () => setActiveTab('playlists')
@@ -528,7 +505,7 @@ export default function App() {
     {
       id: 'players',
       title: 'Telas e Players',
-      subtitle: 'Gerenciar dispositivos e monitorar conexões',
+      subtitle: 'Gerenciar telas e conexões',
       icon: Monitor,
       isPrimary: false,
       onClick: () => setActiveTab('players')
@@ -536,7 +513,7 @@ export default function App() {
     {
       id: 'schedules',
       title: 'Programação',
-      subtitle: 'Agendar horários de exibição das mídias',
+      subtitle: 'Agendar horários das mídias',
       icon: Calendar,
       isPrimary: false,
       onClick: () => setActiveTab('schedules')
@@ -544,7 +521,7 @@ export default function App() {
     {
       id: 'analytics',
       title: 'Estatísticas',
-      subtitle: 'Métricas de reprodução e relatórios de exibição',
+      subtitle: 'Relatórios de exibição',
       icon: BarChart3,
       isPrimary: false,
       onClick: () => setActiveTab('analytics')
@@ -552,7 +529,7 @@ export default function App() {
     {
       id: 'dashboard',
       title: 'Painel Geral',
-      subtitle: 'Resumo do sistema e histórico de eventos',
+      subtitle: 'Resumo do sistema',
       icon: LayoutDashboard,
       isPrimary: false,
       onClick: () => setActiveTab('dashboard')
@@ -562,29 +539,27 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 font-sans flex flex-col">
       
-      {/* Super Simple Top Header Bar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      {/* Top Header Bar */}
+      <header className="bg-white border-b border-gray-300 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           
-          {/* Logo & Home Button */}
           <button 
             onClick={() => setActiveTab('home')}
-            className="flex items-center gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer group"
+            className="flex items-center gap-2.5 text-left cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 bg-blue-600 text-white flex items-center justify-center rounded">
               <Tv className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-base font-black tracking-tight text-gray-900 block leading-tight">
+              <span className="text-base font-bold text-gray-900 block leading-none">
                 FastPlayer
               </span>
-              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase block mt-0.5">
                 Mídia Indoor
               </span>
             </div>
           </button>
 
-          {/* Quick Search */}
           <div className="hidden sm:flex items-center relative max-w-xs w-full">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
             <input
@@ -592,16 +567,14 @@ export default function App() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar mídias ou telas..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+              className="w-full bg-gray-50 border border-gray-300 rounded pl-9 pr-3 py-1.5 text-xs text-gray-900 focus:bg-white focus:border-blue-600 outline-none"
             />
           </div>
 
-          {/* Header Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleDeployAll}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-              title="Publicar alterações"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Activity className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Publicar</span>
@@ -609,23 +582,22 @@ export default function App() {
 
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+              className="p-2 text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
             </button>
 
-            <div className="h-5 w-px bg-gray-200 my-auto hidden sm:block" />
+            <div className="h-5 w-px bg-gray-300 hidden sm:block" />
 
-            {/* User Profile & Logout */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">
+              <div className="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">
                 {user.email ? user.email.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                title="Sair da Conta"
+                className="p-2 text-gray-600 hover:text-red-600 hover:bg-gray-100 rounded cursor-pointer"
+                title="Sair"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -635,22 +607,21 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Body Layout */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
         
         {/* Navigation Breadcrumb bar if in sub-view */}
         {activeTab !== 'home' && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-gray-200 shadow-sm">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded border border-gray-300">
             <button
               onClick={() => setActiveTab('home')}
-              className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3.5 py-2 rounded-lg border border-gray-200 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-bold text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded border border-gray-300 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Início (Menus)</span>
             </button>
 
-            {/* Top Menu Tabs for fast switching */}
-            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0 scroll-hide">
+            <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
               {[
                 { id: 'content', label: 'Mídias' },
                 { id: 'playlists', label: 'Playlists' },
@@ -662,10 +633,10 @@ export default function App() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1.5 rounded text-xs font-bold cursor-pointer whitespace-nowrap ${
                     activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   {tab.label}
@@ -675,28 +646,21 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME SCREEN: Clean Side-by-Side Menu Cards */}
+        {/* HOME SCREEN: Clean Flat Side-by-Side Menu Cards */}
         {activeTab === 'home' ? (
-          <div className="space-y-6 animate-fade-in">
-            {/* Greeting Banner */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
-              <div className="relative z-10 space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold backdrop-blur-md">
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-                  <span>Painel de Controle FastPlayer</span>
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-                  Selecione uma opção
-                </h2>
-                <p className="text-blue-100 text-sm max-w-2xl leading-relaxed">
-                  Gerencie suas propagandas, organizando vídeos, imagens e programações de mídia indoor com simplicidade.
-                </p>
-              </div>
-              <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="space-y-6">
+            {/* Header Title */}
+            <div className="bg-white border border-gray-300 rounded p-6">
+              <h2 className="text-xl font-bold text-gray-900">
+                Painel Principal FastPlayer
+              </h2>
+              <p className="text-xs text-gray-600 mt-1">
+                Selecione um menu abaixo para gerenciar telas, cadastrar mídias ou iniciar a reprodução de propagandas.
+              </p>
             </div>
 
-            {/* SIDE-BY-SIDE MENU CARDS GRID */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            {/* SIDE-BY-SIDE FLAT MENU CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {menuItems.map((item) => {
                 const IconComponent = item.icon;
                 
@@ -705,38 +669,35 @@ export default function App() {
                     <div
                       key={item.id}
                       onClick={item.onClick}
-                      className="sm:col-span-2 lg:col-span-2 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 border-2 border-blue-500 rounded-2xl p-6 sm:p-8 text-white shadow-xl hover:shadow-2xl hover:border-blue-400 transition-all cursor-pointer group relative overflow-hidden flex flex-col justify-between"
+                      className="sm:col-span-2 lg:col-span-2 bg-blue-600 border border-blue-700 rounded p-6 text-white cursor-pointer flex flex-col justify-between"
                     >
-                      <div className="relative z-10 space-y-3">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="w-12 h-12 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                            <Play className="w-6 h-6 fill-current ml-0.5" />
+                          <div className="w-10 h-10 bg-blue-800 text-white flex items-center justify-center rounded">
+                            <Play className="w-5 h-5 fill-current" />
                           </div>
-                          <span className="px-3 py-1 bg-blue-500/30 text-blue-300 text-xs font-bold rounded-full border border-blue-400/30 uppercase tracking-wider">
+                          <span className="px-2.5 py-1 bg-blue-700 text-white text-[11px] font-bold rounded uppercase tracking-wider">
                             Modo Exibição
                           </span>
                         </div>
                         <div>
-                          <h3 className="text-xl sm:text-2xl font-black text-white group-hover:text-blue-300 transition-colors">
+                          <h3 className="text-xl font-bold text-white">
                             {item.title}
                           </h3>
-                          <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">
+                          <p className="text-xs text-blue-100 mt-1">
                             {item.subtitle}
                           </p>
                         </div>
                       </div>
 
-                      <div className="relative z-10 mt-6 flex items-center justify-between pt-4 border-t border-white/10">
-                        <span className="text-xs font-bold text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <span>Clique para Abrir o Player</span>
-                          <span className="text-lg">→</span>
+                      <div className="mt-6 pt-4 border-t border-blue-500 flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">
+                          Clique para iniciar a transmissão
                         </span>
-                        <div className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-md">
-                          ▶ Iniciar Agora
+                        <div className="px-3 py-1.5 bg-white text-blue-700 font-bold text-xs rounded">
+                          ▶ Iniciar Anúncios
                         </div>
                       </div>
-
-                      <div className="absolute right-0 bottom-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
                     </div>
                   );
                 }
@@ -745,14 +706,14 @@ export default function App() {
                   <div
                     key={item.id}
                     onClick={item.onClick}
-                    className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group"
+                    className="bg-white border border-gray-300 rounded p-5 cursor-pointer flex flex-col justify-between hover:border-blue-600"
                   >
                     <div className="space-y-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <div className="w-10 h-10 bg-gray-100 text-blue-600 flex items-center justify-center rounded">
                         <IconComponent className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-sm font-bold text-gray-900">
                           {item.title}
                         </h3>
                         <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -761,9 +722,9 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-blue-600 opacity-80 group-hover:opacity-100">
-                      <span>Acessar</span>
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-xs font-bold text-blue-600">
+                      <span>Abrir</span>
+                      <span>→</span>
                     </div>
                   </div>
                 );
@@ -771,8 +732,8 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* ACTIVE SUB-VIEW RENDER */
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+          /* SUB-VIEW */
+          <div className="bg-white border border-gray-300 rounded p-4 sm:p-6">
             {activeTab === 'dashboard' && (
               <DashboardView 
                 players={players} 
@@ -817,17 +778,14 @@ export default function App() {
 
       </main>
 
-      {/* Toast Feedback */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-gray-800">
-          <div className="w-2.5 h-2.5 bg-green-400 rounded-full status-pulse"></div>
-          <span className="text-xs font-semibold tracking-wide">
-            {toastMessage}
-          </span>
+        <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-2.5 rounded text-xs font-semibold shadow border border-gray-700">
+          {toastMessage}
         </div>
       )}
 
-      {/* Fullscreen Ads Player Modal */}
+      {/* Live Player Modal */}
       <LivePlayerModal 
         isOpen={isSimulatorOpen}
         onClose={() => setIsSimulatorOpen(false)}
@@ -838,20 +796,20 @@ export default function App() {
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-lg bg-white border border-gray-300 rounded p-6 relative">
             <button 
               onClick={() => setIsSettingsOpen(false)}
-              className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 p-2 rounded-xl transition-all cursor-pointer"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 p-1 rounded cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-blue-600" />
+            <h3 className="text-base font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-blue-600" />
               <span>Configurações do Sistema</span>
             </h3>
-            <p className="text-xs text-gray-500 mb-6">
-              Ajuste servidores e modo de desempenho do FastPlayer.
+            <p className="text-xs text-gray-500 mb-4">
+              Ajuste as opções de servidor e modo de tela.
             </p>
             
             <form onSubmit={(e) => {
@@ -862,8 +820,8 @@ export default function App() {
               handleSaveSettings(urlVal, tvBoxVal);
             }} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                  URL do Servidor de Integração
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  URL do Servidor
                 </label>
                 <input 
                   type="text"
@@ -871,42 +829,42 @@ export default function App() {
                   defaultValue={backendUrl}
                   required
                   placeholder="https://exemplo-api.fly.dev"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-2.5 text-xs text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono"
+                  className="w-full bg-gray-50 border border-gray-300 rounded px-3 py-2 text-xs text-gray-900 focus:bg-white focus:outline-none focus:border-blue-600 font-mono"
                 />
               </div>
 
-              <div className="border-t border-gray-100 pt-4">
-                <label className="flex items-start gap-3 cursor-pointer select-none group">
+              <div className="border-t border-gray-200 pt-3">
+                <label className="flex items-start gap-2.5 cursor-pointer">
                   <input 
                     type="checkbox"
                     name="tvBoxMode"
                     defaultChecked={isTvBoxMode}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 mt-0.5"
                   />
                   <div>
-                    <span className="block text-xs font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      Modo TV Box & Desempenho
+                    <span className="block text-xs font-bold text-gray-900">
+                      Modo Desempenho (TV Box / Smart TV)
                     </span>
-                    <span className="block text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                      Desativa animações e melhora o desempenho em Smart TVs e Android TV Boxes.
+                    <span className="block text-[11px] text-gray-500 mt-0.5">
+                      Desativa animações e reduz o consumo de memória em aparelhos TV Box.
                     </span>
                   </div>
                 </label>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
+              <div className="pt-3 flex justify-end gap-2 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
+                  className="px-3 py-1.5 rounded border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 text-xs font-bold text-white shadow-sm hover:bg-blue-700 active:scale-95 transition-all cursor-pointer"
+                  className="px-4 py-1.5 rounded bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer"
                 >
-                  Salvar Alterações
+                  Salvar
                 </button>
               </div>
             </form>
