@@ -94,6 +94,12 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     setIsLoading(true);
     setError(null);
 
+    if (itemsProp && itemsProp.length > 0) {
+      setItems(itemsProp as RSSItem[]);
+      setIsLoading(false);
+      return;
+    }
+
     const targetUrl = url.trim();
     
     // All website URLs (Abrasel, R7, G1, etc.) use backend HTML scraping / RSS conversion

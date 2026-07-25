@@ -124,6 +124,7 @@ export default function App() {
     }
   ]);
   const [rssPreviewIdx, setRssPreviewIdx] = useState(0);
+  const [rssConfiguredItems, setRssConfiguredItems] = useState<any[]>([]);
 
   const fetchRssFeed = async (targetUrl: string) => {
     if (!targetUrl.trim()) return;
@@ -136,7 +137,8 @@ export default function App() {
       if (!res.ok) throw new Error("Backend offline");
       const data = await res.json();
       if (data.status === 'ok' && data.items && data.items.length > 0) {
-        setRssPreviewItems(data.items);
+        const itemsWithSelection = data.items.map((i: any) => ({ ...i, selected: true }));
+        setRssPreviewItems(itemsWithSelection);
         setRssPreviewIdx(0);
         showToast(`${data.items.length} notícias obtidas do RSS!`);
       } else {
@@ -146,7 +148,8 @@ export default function App() {
       try {
         const scraped = await clientSideScrape(formattedUrl);
         if (scraped.status === 'ok' && scraped.items && scraped.items.length > 0) {
-          setRssPreviewItems(scraped.items);
+          const itemsWithSelection = scraped.items.map((i: any) => ({ ...i, selected: true }));
+          setRssPreviewItems(itemsWithSelection);
           setRssPreviewIdx(0);
           showToast(`${scraped.items.length} notícias obtidas com sucesso!`);
         }
@@ -485,7 +488,8 @@ export default function App() {
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       userId: currentUid,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
 
     let newDocId = editingId;
@@ -528,7 +532,8 @@ export default function App() {
       start: startDate || '',
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
-      order: firestorePlaylist.length + 1
+      order: firestorePlaylist.length + 1,
+      ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
     
     // Immediate UI update
@@ -555,6 +560,7 @@ export default function App() {
     setStartDate("");
     setEndDate("");
     setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+    setRssConfiguredItems([]);
   };
 
   const editItem = (item: MediaItem) => {
@@ -577,6 +583,11 @@ export default function App() {
     setStartDate(item.start || "");
     setEndDate(item.end || "");
     setSelectedDays(item.days || [0, 1, 2, 3, 4, 5, 6]);
+    if (mappedType === 'rss' && item.items) {
+      setRssConfiguredItems(item.items);
+    } else {
+      setRssConfiguredItems([]);
+    }
   };
 
   const deleteItem = async (id: string) => {
@@ -1373,6 +1384,7 @@ export default function App() {
                   key={currentMedia.id + '-' + playIdx}
                   url={contentStr} 
                   name={currentMedia.name} 
+                  items={currentMedia.items}
                 />
               );
             })() : (
@@ -1573,6 +1585,44 @@ export default function App() {
               )}
             </div>
 
+            {/* List of News Items */}
+            {rssPreviewItems.length > 0 && (
+              <div style={{ marginBottom: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155', margin: '0 0 10px 0' }}>Selecione e edite as notícias ({rssPreviewItems.filter(i => i.selected !== false).length}/{rssPreviewItems.length}):</h4>
+                <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '5px' }}>
+                  {rssPreviewItems.map((item, idx) => (
+                    <div key={idx} style={{ background: item.selected === false ? '#f8fafc' : 'white', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', gap: '12px', opacity: item.selected === false ? 0.6 : 1, transition: 'all 0.2s' }}>
+                      <div style={{ paddingTop: '8px' }}>
+                        <input type="checkbox" checked={item.selected !== false} onChange={(e) => {
+                          const newItems = [...rssPreviewItems];
+                          newItems[idx].selected = e.target.checked;
+                          setRssPreviewItems(newItems);
+                        }} style={{ width: '18px', height: '18px', cursor: 'pointer', margin: 0 }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <input type="text" value={item.title} onChange={(e) => {
+                          const newItems = [...rssPreviewItems];
+                          newItems[idx].title = e.target.value;
+                          setRssPreviewItems(newItems);
+                        }} style={{ width: '100%', fontWeight: 700, fontSize: '13px', marginBottom: '6px', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px', boxSizing: 'border-box' }} disabled={item.selected === false} />
+                        
+                        <textarea value={item.description} onChange={(e) => {
+                          const newItems = [...rssPreviewItems];
+                          newItems[idx].description = e.target.value;
+                          setRssPreviewItems(newItems);
+                        }} style={{ width: '100%', fontSize: '12px', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px', resize: 'vertical', minHeight: '60px', boxSizing: 'border-box' }} disabled={item.selected === false} />
+                      </div>
+                      {item.thumbnail && (
+                        <div style={{ flexShrink: 0, width: '80px' }}>
+                          <img src={item.thumbnail} alt="" style={{ width: '100%', height: '60px', objectFit: 'cover', borderRadius: '6px' }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button
@@ -1593,6 +1643,7 @@ export default function App() {
                   if (!propDuration) {
                     setPropDuration(15);
                   }
+                  setRssConfiguredItems(rssPreviewItems.filter(i => i.selected !== false));
                   setIsRssModalOpen(false);
                   showToast("Feed RSS configurado!");
                 }}
