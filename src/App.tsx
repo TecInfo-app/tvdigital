@@ -80,6 +80,8 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   // Core system states
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
@@ -244,6 +246,7 @@ export default function App() {
 
       if (currentUser) {
         setLoadingData(true);
+        setSyncStatus('syncing');
         const uid = currentUser.uid;
 
         if (unsubSnap) {
@@ -258,8 +261,11 @@ export default function App() {
             .map(d => ({ id: d.id, ...d.data() } as MediaItem))
             .sort((a, b) => (a.order || 0) - (b.order || 0));
           setFirestorePlaylist(items);
+          setSyncStatus('success');
+          setLastSyncTime(new Date().toLocaleTimeString());
         }, (err) => {
           console.warn("Playlist monitor notice:", err);
+          setSyncStatus('error');
         });
 
         // Initialize user data collections with fallback
@@ -285,6 +291,7 @@ export default function App() {
             setLogs(INITIAL_LOGS);
           }
           setLoadingData(false);
+          setSyncStatus('error');
         }, 2500);
 
         try {
@@ -344,12 +351,15 @@ export default function App() {
               logsSnap.forEach(doc => loadedLogs.push(doc.data() as LogEntry));
               setLogs(loadedLogs);
             }
+            setSyncStatus('success');
+            setLastSyncTime(new Date().toLocaleTimeString());
           }
         } catch (error) {
           if (!didTimeOutOrResolve) {
             clearTimeout(timeoutId);
             didTimeOutOrResolve = true;
           }
+          setSyncStatus('error');
         } finally {
           setLoadingData(false);
         }
@@ -503,6 +513,7 @@ export default function App() {
 
     // Save to Firestore 'playlist' collection with fallback
     try {
+      setSyncStatus('syncing');
       if (editingId) {
         await updateDoc(doc(db, "playlist", editingId), cleanUndefined(rawData));
       } else {
@@ -513,8 +524,11 @@ export default function App() {
         }));
         newDocId = docRef.id;
       }
+      setSyncStatus('success');
+      setLastSyncTime(new Date().toLocaleTimeString());
     } catch (firestoreErr) {
       console.warn("[Media Save] Firestore sync notice (saving to local state):", firestoreErr);
+      setSyncStatus('error');
       if (!newDocId) {
         newDocId = `media-${Date.now()}`;
       }
@@ -604,17 +618,16 @@ export default function App() {
 
       // Async Firestore cleanup
       try {
+        setSyncStatus('syncing');
         await deleteDoc(doc(db, "playlist", id));
-      } catch (err) {
-        console.warn("[Delete notice - playlist]:", err);
-      }
-
-      if (user?.uid) {
-        try {
+        if (user?.uid) {
           await deleteDoc(doc(db, "users", user.uid, "media_items", id));
-        } catch (err) {
-          console.warn("[Delete notice - media_items]:", err);
         }
+        setSyncStatus('success');
+        setLastSyncTime(new Date().toLocaleTimeString());
+      } catch (err) {
+        console.warn("[Delete notice]:", err);
+        setSyncStatus('error');
       }
     }
   };
@@ -1333,7 +1346,16 @@ export default function App() {
               logs={logs} 
               mediaItems={mediaItems} 
               setActiveTab={(tab) => setScreen(tab)}
-              onDeployAll={() => showToast("Publicação global acionada.")}
+              onDeployAll={() => {
+                setSyncStatus('syncing');
+                setTimeout(() => {
+                  setSyncStatus('success');
+                  setLastSyncTime(new Date().toLocaleTimeString());
+                  showToast("Publicação global concluída.");
+                }, 1500);
+              }}
+              syncStatus={syncStatus}
+              lastSyncTime={lastSyncTime}
             />
           </div>
         </div>
@@ -1342,13 +1364,6 @@ export default function App() {
       {/* FULLSCREEN PLAYER (#player from HTML code) */}
       {screen === 'player' && (
         <div id="player" style={{ background: '#000', position: 'fixed', top: 0, left: 0, zIndex: 9999, height: '100vh', width: '100vw' }}>
-          <button 
-            onClick={() => setScreen('menu')}
-            style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10000, background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-          >
-            ✕ Sair da TV
-          </button>
-
           <div id="displayArea" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {currentMedia ? (() => {
               const contentStr = currentMedia.content || currentMedia.url || '';

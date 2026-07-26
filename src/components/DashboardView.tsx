@@ -12,6 +12,8 @@ interface DashboardViewProps {
   mediaItems: MediaItem[];
   setActiveTab: (tab: string) => void;
   onDeployAll: () => void;
+  syncStatus?: 'success' | 'error' | 'syncing' | 'idle';
+  lastSyncTime?: string | null;
 }
 
 export default function DashboardView({
@@ -19,7 +21,9 @@ export default function DashboardView({
   logs,
   mediaItems,
   setActiveTab,
-  onDeployAll
+  onDeployAll,
+  syncStatus = 'idle',
+  lastSyncTime = null
 }: DashboardViewProps) {
   const activePlayersCount = players.filter(p => p.status === 'online').length;
   const warningPlayersCount = players.filter(p => p.status === 'warning').length;
@@ -32,7 +36,26 @@ export default function DashboardView({
         {/* Welcome Card */}
         <div className="col-span-1 md:col-span-2 lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col justify-between min-h-[210px] border border-gray-200 40 shadow-xl shadow-brand-surface-lowest/40">
           <div>
-            <h2 className="font-geist text-2xl font-bold text-gray-900">Bem-vindo de volta, Admin</h2>
+            <div className="flex justify-between items-start mb-2">
+              <h2 className="font-geist text-2xl font-bold text-gray-900">Bem-vindo de volta, Admin</h2>
+              {/* Sync Status Indicator */}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold font-geist tracking-wide ${
+                syncStatus === 'success' ? 'bg-green-100 text-green-700' :
+                syncStatus === 'error' ? 'bg-red-100 text-red-700' :
+                syncStatus === 'syncing' ? 'bg-blue-100 text-blue-700 animate-pulse' :
+                'bg-gray-100 text-gray-700'
+              }`}>
+                {syncStatus === 'success' && <CheckCircle className="w-3.5 h-3.5" />}
+                {syncStatus === 'error' && <AlertTriangle className="w-3.5 h-3.5" />}
+                {syncStatus === 'syncing' && <Network className="w-3.5 h-3.5" />}
+                <span>
+                  {syncStatus === 'success' ? 'Sincronizado' :
+                   syncStatus === 'error' ? 'Falha na Sincronização' :
+                   syncStatus === 'syncing' ? 'Sincronizando...' : 'Pronto'}
+                </span>
+                {lastSyncTime && syncStatus !== 'syncing' && <span className="font-normal opacity-80 ml-1 hidden sm:inline">{lastSyncTime}</span>}
+              </div>
+            </div>
             <p className="text-gray-900-variant text-sm mt-2 font-inter leading-relaxed">
               Sua rede de sinalização digital está <strong className="text-pink-600">98% operacional</strong> em todos os displays ativos em regiões metropolitanas.
             </p>
