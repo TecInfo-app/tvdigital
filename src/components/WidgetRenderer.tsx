@@ -14,6 +14,13 @@ interface WidgetRendererProps {
   className?: string;
   key?: string | number;
   items?: Array<{ title: string; description: string; thumbnail?: string; pubDate?: string }>;
+  rssOptions?: {
+    showTitle: boolean;
+    showDescription: boolean;
+    showImage: boolean;
+    showDate: boolean;
+    itemDuration: number;
+  };
 }
 
 interface RSSItem {
@@ -69,7 +76,7 @@ function cleanText(rawHtml: string): string {
     .trim();
 }
 
-export default function WidgetRenderer({ url, name, className = "", items: itemsProp }: WidgetRendererProps) {
+export default function WidgetRenderer({ url, name, className = "", items: itemsProp, rssOptions }: WidgetRendererProps) {
   const [items, setItems] = useState<RSSItem[]>([]);
   const [feedTitle, setFeedTitle] = useState(name);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -192,11 +199,12 @@ export default function WidgetRenderer({ url, name, className = "", items: items
   // Slideshow interval for RSS news articles
   useEffect(() => {
     if (items.length <= 1) return;
+    const durationMs = (rssOptions?.itemDuration || 15) * 1000;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % items.length);
-    }, 7000); // 7 seconds per news slide
+    }, durationMs);
     return () => clearInterval(interval);
-  }, [items]);
+  }, [items, rssOptions?.itemDuration]);
 
   // Case 1: Standard iframe widget (Web Links)
   if (!isRss) {
@@ -244,40 +252,52 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     <div className={`w-full h-full flex flex-row bg-slate-900 overflow-hidden text-white select-none ${className}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row' }}>
       
       {/* Left side: Image */}
-      <div className="w-1/2 h-full relative bg-slate-950" style={{ width: '50%', height: '100%', position: 'relative' }}>
-        {currentItem?.thumbnail ? (
-          <img 
-            src={currentItem.thumbnail} 
-            alt="Notícia" 
-            className="w-full h-full object-cover transition-transform duration-[15000ms] ease-out scale-105"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-800" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="text-slate-500 font-bold text-2xl">SEM IMAGEM</span>
-          </div>
-        )}
-      </div>
+      {(rssOptions?.showImage ?? true) && (
+        <div className="w-1/2 h-full relative bg-slate-950" style={{ width: '50%', height: '100%', position: 'relative' }}>
+          {currentItem?.thumbnail ? (
+            <img 
+              src={currentItem.thumbnail} 
+              alt="Notícia" 
+              className="w-full h-full object-cover transition-transform duration-[15000ms] ease-out scale-105"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-slate-800" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="text-slate-500 font-bold text-2xl">SEM IMAGEM</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Right side: News Content */}
-      <div className="w-1/2 h-full flex flex-col justify-center px-12 md:px-16 space-y-6 bg-slate-900 relative shadow-2xl" style={{ width: '50%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 4rem', backgroundColor: '#0f172a', zIndex: 10 }}>
+      <div className={`${(rssOptions?.showImage ?? true) ? 'w-1/2' : 'w-full'} h-full flex flex-col justify-center px-12 md:px-16 space-y-6 bg-slate-900 relative shadow-2xl`} style={{ width: (rssOptions?.showImage ?? true) ? '50%' : '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 4rem', backgroundColor: '#0f172a', zIndex: 10 }}>
         {/* Decorative accent */}
         <div className="w-16 h-2 bg-blue-600 rounded-full mb-4" style={{ width: '4rem', height: '0.5rem', backgroundColor: '#2563eb', borderRadius: '9999px' }}></div>
 
-        <h1 
-          className="font-montserrat font-black text-3xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white"
-          style={{ color: '#ffffff', wordWrap: 'break-word', overflowWrap: 'break-word' }}
-        >
-          {currentItem?.title || 'Buscando matérias do feed...'}
-        </h1>
+        {(rssOptions?.showDate ?? true) && currentItem?.pubDate && (
+           <div style={{ color: '#94a3b8', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '10px' }}>
+             {currentItem.pubDate}
+           </div>
+        )}
 
-        <p 
-          className="font-inter text-lg md:text-xl lg:text-2xl text-slate-300 leading-relaxed font-normal tracking-wide pt-2"
-          style={{ color: '#cbd5e1', wordWrap: 'break-word', overflowWrap: 'break-word' }}
-        >
-          {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
-        </p>
+        {(rssOptions?.showTitle ?? true) && (
+          <h1 
+            className="font-montserrat font-black text-3xl md:text-4xl lg:text-6xl leading-tight tracking-tight text-white"
+            style={{ color: '#ffffff', wordWrap: 'break-word', overflowWrap: 'break-word' }}
+          >
+            {currentItem?.title || 'Buscando matérias do feed...'}
+          </h1>
+        )}
+
+        {(rssOptions?.showDescription ?? true) && (
+          <p 
+            className="font-inter text-lg md:text-xl lg:text-2xl text-slate-300 leading-relaxed font-normal tracking-wide pt-2"
+            style={{ color: '#cbd5e1', wordWrap: 'break-word', overflowWrap: 'break-word' }}
+          >
+            {currentItem?.description || 'Acesse o feed de transmissão para exibir a notícia em destaque na íntegra.'}
+          </p>
+        )}
       </div>
     </div>
   );
