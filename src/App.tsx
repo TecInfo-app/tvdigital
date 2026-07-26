@@ -127,13 +127,6 @@ export default function App() {
   ]);
   const [rssPreviewIdx, setRssPreviewIdx] = useState(0);
   const [rssConfiguredItems, setRssConfiguredItems] = useState<any[]>([]);
-  const [rssOptions, setRssOptions] = useState({
-    showTitle: true,
-    showDescription: true,
-    showImage: true,
-    showDate: true,
-    itemDuration: 15
-  });
 
   const fetchRssFeed = async (targetUrl: string) => {
     if (!targetUrl.trim()) return;
@@ -506,7 +499,7 @@ export default function App() {
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       userId: currentUid,
       updatedAt: new Date().toISOString(),
-      ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems, rssOptions } : {})
+      ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
 
     let newDocId = editingId;
@@ -554,7 +547,7 @@ export default function App() {
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       order: firestorePlaylist.length + 1,
-      ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems, rssOptions } : {})
+      ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
     
     // Immediate UI update
@@ -606,9 +599,6 @@ export default function App() {
     setSelectedDays(item.days || [0, 1, 2, 3, 4, 5, 6]);
     if (mappedType === 'rss' && item.items) {
       setRssConfiguredItems(item.items);
-      if (item.rssOptions) {
-        setRssOptions(item.rssOptions);
-      }
     } else {
       setRssConfiguredItems([]);
     }
@@ -1410,7 +1400,6 @@ export default function App() {
                   url={contentStr} 
                   name={currentMedia.name} 
                   items={currentMedia.items}
-                  rssOptions={currentMedia.rssOptions}
                 />
               );
             })() : (
@@ -1611,31 +1600,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Display Options */}
-            {rssPreviewItems.length > 0 && (
-              <div style={{ marginBottom: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155', margin: '0 0 10px 0' }}>Opções de Exibição:</h4>
-                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '15px', background: '#f8fafc', padding: '12px', borderRadius: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={rssOptions.showTitle} onChange={(e) => setRssOptions({...rssOptions, showTitle: e.target.checked})} /> Título
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={rssOptions.showDescription} onChange={(e) => setRssOptions({...rssOptions, showDescription: e.target.checked})} /> Descrição
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={rssOptions.showImage} onChange={(e) => setRssOptions({...rssOptions, showImage: e.target.checked})} /> Imagem
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={rssOptions.showDate} onChange={(e) => setRssOptions({...rssOptions, showDate: e.target.checked})} /> Data
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                    Tempo por notícia (seg):
-                    <input type="number" value={rssOptions.itemDuration} onChange={(e) => setRssOptions({...rssOptions, itemDuration: Number(e.target.value) || 10})} style={{ width: '60px', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
-                  </label>
-                </div>
-              </div>
-            )}
-
             {/* List of News Items */}
             {rssPreviewItems.length > 0 && (
               <div style={{ marginBottom: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
@@ -1691,11 +1655,10 @@ export default function App() {
                   if (!propName) {
                     setPropName(rssPresetName || 'Feed RSS - Notícias');
                   }
-                  const selectedItems = rssPreviewItems.filter(i => i.selected !== false);
                   if (!propDuration) {
-                    setPropDuration(selectedItems.length * rssOptions.itemDuration);
+                    setPropDuration(15);
                   }
-                  setRssConfiguredItems(selectedItems);
+                  setRssConfiguredItems(rssPreviewItems.filter(i => i.selected !== false));
                   setIsRssModalOpen(false);
                   showToast("Feed RSS configurado!");
                 }}

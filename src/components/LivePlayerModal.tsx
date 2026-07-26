@@ -130,7 +130,6 @@ export default function LivePlayerModal({
               url={currentItem.url} 
               name={currentItem.name} 
               items={currentItem.items}
-              rssOptions={currentItem.rssOptions}
               className="w-full h-full"
             />
           ) : (

@@ -18,13 +18,6 @@ export interface MediaItem {
   days?: number[];
   userId?: string;
   items?: Array<{ title: string; description: string; thumbnail?: string; pubDate?: string; showTitle?: boolean; showDescription?: boolean }>;
-  rssOptions?: {
-    showTitle: boolean;
-    showDescription: boolean;
-    showImage: boolean;
-    showDate: boolean;
-    itemDuration: number;
-  };
 }
 
 export interface Player {
