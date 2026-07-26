@@ -111,7 +111,7 @@ export default function App() {
   const [rssUrlInput, setRssUrlInput] = useState('https://g1.globo.com/rss/g1/');
   const [rssPresetName, setRssPresetName] = useState('G1 - Notícias Globais');
   const [rssLoading, setRssLoading] = useState(false);
-  const [rssPreviewItems, setRssPreviewItems] = useState<Array<{ title: string; description: string; thumbnail?: string; pubDate?: string }>>([
+  const [rssPreviewItems, setRssPreviewItems] = useState<Array<{ title: string; description: string; thumbnail?: string; pubDate?: string; selected?: boolean; duration?: number | '' }>>([
     {
       title: 'Mercado Financeiro: Bolsa opera em alta impulsionada por inovação',
       description: 'Fluxo forte de investimento e otimismo no setor tecnológico impulsionam o mercado local.',
@@ -134,13 +134,25 @@ export default function App() {
     const formattedUrl = targetUrl.trim();
     const apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(formattedUrl)}`);
     
+    const applyConfig = (items: any[]) => {
+      if (rssConfiguredItems && rssConfiguredItems.length > 0) {
+        return items.map(item => {
+          const configItem = rssConfiguredItems.find(c => c.title === item.title);
+          if (configItem) {
+            return { ...item, selected: configItem.selected, duration: configItem.duration, title: configItem.title, description: configItem.description };
+          }
+          return { ...item, selected: true };
+        });
+      }
+      return items.map((i: any) => ({ ...i, selected: true }));
+    };
+
     try {
       const res = await fetch(apiUrl);
       if (!res.ok) throw new Error("Backend offline");
       const data = await res.json();
       if (data.status === 'ok' && data.items && data.items.length > 0) {
-        const itemsWithSelection = data.items.map((i: any) => ({ ...i, selected: true }));
-        setRssPreviewItems(itemsWithSelection);
+        setRssPreviewItems(applyConfig(data.items));
         setRssPreviewIdx(0);
         showToast(`${data.items.length} notícias obtidas do RSS!`);
       } else {
@@ -150,13 +162,15 @@ export default function App() {
       try {
         const scraped = await clientSideScrape(formattedUrl);
         if (scraped.status === 'ok' && scraped.items && scraped.items.length > 0) {
-          const itemsWithSelection = scraped.items.map((i: any) => ({ ...i, selected: true }));
-          setRssPreviewItems(itemsWithSelection);
+          setRssPreviewItems(applyConfig(scraped.items));
           setRssPreviewIdx(0);
           showToast(`${scraped.items.length} notícias obtidas com sucesso!`);
         }
       } catch (scrapeErr) {
         console.warn("[RSS Fetch Notice]", scrapeErr);
+        if (rssConfiguredItems && rssConfiguredItems.length > 0) {
+          setRssPreviewItems(rssConfiguredItems);
+        }
         showToast("Exibindo pré-visualização de Notícias RSS.");
       }
     } finally {
@@ -1400,6 +1414,7 @@ export default function App() {
                   url={contentStr} 
                   name={currentMedia.name} 
                   items={currentMedia.items}
+                  defaultDuration={currentMedia.duration}
                 />
               );
             })() : (
@@ -1588,7 +1603,7 @@ export default function App() {
                   >
                     ◀ Anterior
                   </button>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Troca automática a cada 15s na TV</span>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Troca automática por tempo configurado</span>
                   <button
                     type="button"
                     onClick={() => setRssPreviewIdx(prev => (prev < rssPreviewItems.length - 1 ? prev + 1 : 0))}
@@ -1625,7 +1640,24 @@ export default function App() {
                           const newItems = [...rssPreviewItems];
                           newItems[idx].description = e.target.value;
                           setRssPreviewItems(newItems);
-                        }} style={{ width: '100%', fontSize: '12px', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px', resize: 'vertical', minHeight: '60px', boxSizing: 'border-box' }} disabled={item.selected === false} />
+                        }} style={{ width: '100%', fontSize: '12px', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px', resize: 'vertical', minHeight: '60px', boxSizing: 'border-box', marginBottom: '6px' }} disabled={item.selected === false} />
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <label style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Tempo (segundos):</label>
+                          <input 
+                            type="number" 
+                            min="5" 
+                            placeholder="Padrão"
+                            value={item.duration || ''} 
+                            onChange={(e) => {
+                              const newItems = [...rssPreviewItems];
+                              newItems[idx].duration = e.target.value ? parseInt(e.target.value) : '';
+                              setRssPreviewItems(newItems);
+                            }} 
+                            style={{ width: '70px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 6px' }} 
+                            disabled={item.selected === false}
+                          />
+                        </div>
                       </div>
                       {item.thumbnail && (
                         <div style={{ flexShrink: 0, width: '80px' }}>

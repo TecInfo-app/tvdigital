@@ -13,7 +13,8 @@ interface WidgetRendererProps {
   name: string;
   className?: string;
   key?: string | number;
-  items?: Array<{ title: string; description: string; thumbnail?: string; pubDate?: string }>;
+  items?: Array<{ title: string; description: string; thumbnail?: string; pubDate?: string; duration?: number | '' }>;
+  defaultDuration?: number;
 }
 
 interface RSSItem {
@@ -22,6 +23,7 @@ interface RSSItem {
   pubDate: string;
   link: string;
   thumbnail?: string;
+  duration?: number | '';
   enclosure?: {
     link?: string;
   };
@@ -69,12 +71,14 @@ function cleanText(rawHtml: string): string {
     .trim();
 }
 
-export default function WidgetRenderer({ url, name, className = "", items: itemsProp }: WidgetRendererProps) {
+export default function WidgetRenderer({ url, name, className = "", items: itemsProp, defaultDuration }: WidgetRendererProps) {
   const [items, setItems] = useState<RSSItem[]>([]);
   const [feedTitle, setFeedTitle] = useState(name);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fallbackDuration = defaultDuration ? defaultDuration * 1000 : 7000;
 
   const isDirectMedia = /\.(jpg|jpeg|png|webp|gif|mp4|webm|mov)(\?.*)?$/i.test(url);
   const isRss = !isDirectMedia && (
@@ -192,11 +196,17 @@ export default function WidgetRenderer({ url, name, className = "", items: items
   // Slideshow interval for RSS news articles
   useEffect(() => {
     if (items.length <= 1) return;
-    const interval = setInterval(() => {
+    
+    // Check if the current item has a custom duration, otherwise fallback to the default duration
+    const currentItem = items[currentIndex];
+    const displayDuration = currentItem?.duration ? Number(currentItem.duration) * 1000 : fallbackDuration;
+    
+    const timeout = setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % items.length);
-    }, 7000); // 7 seconds per news slide
-    return () => clearInterval(interval);
-  }, [items]);
+    }, displayDuration);
+    
+    return () => clearTimeout(timeout);
+  }, [items, currentIndex]);
 
   // Case 1: Standard iframe widget (Web Links)
   if (!isRss) {

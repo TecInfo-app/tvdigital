@@ -130,6 +130,7 @@ export default function LivePlayerModal({
               url={currentItem.url} 
               name={currentItem.name} 
               items={currentItem.items}
+              defaultDuration={currentItem.duration}
               className="w-full h-full"
             />
           ) : (
