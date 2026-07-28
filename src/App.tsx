@@ -1370,6 +1370,7 @@ export default function App() {
               }}
               syncStatus={syncStatus}
               lastSyncTime={lastSyncTime}
+              onDeleteMedia={deleteItem}
             />
           </div>
         </div>

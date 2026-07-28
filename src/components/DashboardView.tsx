@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CheckCircle, History, PlayCircle, Network, Users, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, History, PlayCircle, Network, Users, AlertTriangle, Trash2, Search } from 'lucide-react';
 import { Player, LogEntry, MediaItem } from '../types';
 
 interface DashboardViewProps {
@@ -14,6 +15,7 @@ interface DashboardViewProps {
   onDeployAll: () => void;
   syncStatus?: 'success' | 'error' | 'syncing' | 'idle';
   lastSyncTime?: string | null;
+  onDeleteMedia?: (id: string) => void;
 }
 
 export default function DashboardView({
@@ -23,8 +25,10 @@ export default function DashboardView({
   setActiveTab,
   onDeployAll,
   syncStatus = 'idle',
-  lastSyncTime = null
+  lastSyncTime = null,
+  onDeleteMedia
 }: DashboardViewProps) {
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const activePlayersCount = players.filter(p => p.status === 'online').length;
   const warningPlayersCount = players.filter(p => p.status === 'warning').length;
   const totalPlayersCount = players.length;
@@ -148,7 +152,7 @@ export default function DashboardView({
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={onDeployAll}
               className="bg-gray-50 border border-gray-200 text-gray-900 font-bold px-5 py-3 rounded-xl text-xs hover:bg-gray-50 hover:scale-[1.01] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
@@ -160,6 +164,13 @@ export default function DashboardView({
               className="border border-gray-200 hover:bg-gray-50 text-gray-500 font-bold px-5 py-3 rounded-xl text-xs cursor-pointer active:scale-95 transition-all"
             >
               Configurar Displays
+            </button>
+            <button
+              onClick={() => setIsScannerOpen(true)}
+              className="border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 font-bold px-5 py-3 rounded-xl text-xs cursor-pointer active:scale-95 transition-all flex items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              Varredura de Banco (Lixo)
             </button>
           </div>
         </div>
@@ -197,6 +208,88 @@ export default function DashboardView({
           </div>
         </div>
       </section>
+
+      {/* Scanner Modal */}
+      {isScannerOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <Search className="text-red-500 w-6 h-6" />
+                <div>
+                  <h3 className="font-geist text-xl font-bold text-gray-900">Varredura de Banco de Dados</h3>
+                  <p className="text-xs text-gray-500 mt-1 font-inter">Identifique mídias muito pesadas que possam estar atrasando o carregamento da TV.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsScannerOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
+              <div className="space-y-3">
+                {mediaItems
+                  .map(item => {
+                    const strSize = JSON.stringify(item).length;
+                    // base64 approx size in bytes
+                    const bytes = strSize * 0.75; 
+                    const isLarge = bytes > 100000; // > 100KB
+                    return { ...item, bytes, isLarge };
+                  })
+                  .sort((a, b) => b.bytes - a.bytes)
+                  .map(item => (
+                    <div key={item.id} className={`p-4 rounded-xl border flex items-center justify-between ${item.isLarge ? 'bg-red-50/50 border-red-200' : 'bg-white border-gray-200'}`}>
+                      <div className="flex items-center gap-4">
+                        {item.type === 'image' && item.url?.startsWith('data:image') ? (
+                          <img src={item.url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200" />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center border border-gray-200 text-xs font-bold text-gray-400">{item.type}</div>
+                        )}
+                        <div>
+                          <p className="font-bold text-sm text-gray-900 font-geist">{item.name || 'Sem Nome'}</p>
+                          <p className={`text-xs mt-0.5 font-mono-data ${item.isLarge ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                            Tamanho aprox: {(item.bytes / 1024).toFixed(1)} KB
+                            {item.isLarge && ' (PESADO - Pode causar lentidão)'}
+                          </p>
+                        </div>
+                      </div>
+                      {onDeleteMedia && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Deseja apagar o item "${item.name}" definitivamente do banco?`)) {
+                              onDeleteMedia(item.id!);
+                            }
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+                          title="Excluir Mídia"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                ))}
+                {mediaItems.length === 0 && (
+                  <div className="text-center p-8 text-gray-500 text-sm">
+                    Nenhuma mídia encontrada no banco.
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 flex justify-end bg-white rounded-b-2xl">
+              <button
+                onClick={() => setIsScannerOpen(false)}
+                className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm rounded-xl transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

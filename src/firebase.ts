@@ -4,13 +4,12 @@ import { getFirestore } from 'firebase/firestore';
 
 // Configuration provided by the user
 const firebaseConfig = {
-  apiKey: "AIzaSyBRi-46l3LtTDY1lXLlhOImDiGVwfNKk5U",
-  authDomain: "fastplayer-f116c.firebaseapp.com",
-  databaseURL: "https://fastplayer-f116c-default-rtdb.firebaseio.com",
-  projectId: "fastplayer-f116c",
-  storageBucket: "fastplayer-f116c.firebasestorage.app",
-  messagingSenderId: "1069215413731",
-  appId: "1:1069215413731:web:a6f054930a15fd73a6dcd6"
+  apiKey: "AIzaSyBj6m8yjUnv3jmnkAFemTMs7hhbi1te9HQ",
+  authDomain: "fast-player-55570.firebaseapp.com",
+  projectId: "fast-player-55570",
+  storageBucket: "fast-player-55570.firebasestorage.app",
+  messagingSenderId: "359742862381",
+  appId: "1:359742862381:web:894ce6ad0d3ae3abecf4a4"
 };
 
 // Initialize Firebase
