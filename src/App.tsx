@@ -347,22 +347,25 @@ export default function App() {
               setLogs(INITIAL_LOGS);
             } else {
               const items: MediaItem[] = [];
-              mediaSnap.forEach(doc => items.push(doc.data() as MediaItem));
-              setMediaItems(items);
+              mediaSnap.forEach(doc => items.push({ id: doc.id, ...doc.data() } as MediaItem));
+              
+              // Deduplicate items based on id to prevent React key errors
+              const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());
+              setMediaItems(uniqueItems);
 
               const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
               const loadedPlayers: Player[] = [];
-              playersSnap.forEach(doc => loadedPlayers.push(doc.data() as Player));
+              playersSnap.forEach(doc => loadedPlayers.push({ id: doc.id, ...doc.data() } as Player));
               setPlayers(loadedPlayers);
 
               const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
               const loadedPlaylists: Playlist[] = [];
-              playlistsSnap.forEach(doc => loadedPlaylists.push(doc.data() as Playlist));
+              playlistsSnap.forEach(doc => loadedPlaylists.push({ id: doc.id, ...doc.data() } as Playlist));
               setPlaylists(loadedPlaylists);
 
               const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
               const loadedLogs: LogEntry[] = [];
-              logsSnap.forEach(doc => loadedLogs.push(doc.data() as LogEntry));
+              logsSnap.forEach(doc => loadedLogs.push({ id: doc.id, ...doc.data() } as LogEntry));
               setLogs(loadedLogs);
             }
             setSyncStatus('success');
@@ -566,8 +569,8 @@ export default function App() {
     
     // Immediate UI update
     if (!editingId) {
-      setFirestorePlaylist(prev => [...prev, newMediaItem]);
-      handleSetMediaItems([...mediaItems, newMediaItem]);
+      setFirestorePlaylist(prev => [...prev.filter(i => i.id !== newMediaItem.id), newMediaItem]);
+      handleSetMediaItems([...mediaItems.filter(i => i.id !== newMediaItem.id), newMediaItem]);
       showToast("Mídia salva com sucesso!");
     } else {
       setFirestorePlaylist(prev => prev.map(m => m.id === editingId ? { ...m, ...newMediaItem } : m));
