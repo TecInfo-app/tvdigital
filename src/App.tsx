@@ -194,6 +194,7 @@ export default function App() {
 
   // Player playback states
   const [playIdx, setPlayIdx] = useState(0);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [currentMedia, setCurrentMedia] = useState<MediaItem | null>(null);
   const playerTimerRef = useRef<any>(null);
 
@@ -681,6 +682,34 @@ export default function App() {
           } catch (e) {
             // ignore
           }
+        }
+      });
+      await Promise.all(updates);
+    } catch (err) {
+      console.warn("[Reorder sync notice]:", err);
+    }
+  };
+
+  const reorderDrag = async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    const list = firestorePlaylist.length > 0 ? [...firestorePlaylist] : [...mediaItems];
+    const item = list.splice(fromIdx, 1)[0];
+    list.splice(toIdx, 0, item);
+
+    const reorderedList = list.map((m, index) => ({
+      ...m,
+      order: index + 1
+    }));
+
+    setFirestorePlaylist(reorderedList);
+    setMediaItems(reorderedList);
+
+    try {
+      const updates = reorderedList.map(async (m) => {
+        if (m.id && !m.id.startsWith('media-')) {
+          try {
+            await updateDoc(doc(db, "playlist", m.id), { order: m.order });
+          } catch (e) {}
         }
       });
       await Promise.all(updates);
@@ -1191,7 +1220,42 @@ export default function App() {
                 if (item.duration) desc += ` | ⏱️ ${item.duration}s`;
 
                 return (
-                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '60px 1fr auto', alignItems: 'center', padding: '12px', background: 'white', marginBottom: '8px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div 
+                    key={item.id} 
+                    draggable={true}
+                    onDragStart={(e) => {
+                      setDraggedIndex(index);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(index));
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const from = draggedIndex !== null ? draggedIndex : Number(e.dataTransfer.getData('text/plain'));
+                      reorderDrag(from, index);
+                      setDraggedIndex(null);
+                    }}
+                    onDragEnd={() => setDraggedIndex(null)}
+                    style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '24px 60px 1fr auto', 
+                      alignItems: 'center', 
+                      padding: '12px', 
+                      background: 'white', 
+                      marginBottom: '8px', 
+                      borderRadius: '12px', 
+                      border: draggedIndex === index ? '2px dashed #6366f1' : '1px solid #e2e8f0',
+                      opacity: draggedIndex === index ? 0.4 : 1,
+                      cursor: 'grab',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                      ☰
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <button 
                         onClick={() => reorder(index, -1)}
