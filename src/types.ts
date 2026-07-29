@@ -17,6 +17,8 @@ export interface MediaItem {
   end?: string;
   days?: number[];
   userId?: string;
+  playlistName?: string;
+  paused?: boolean;
   items?: Array<{ title: string; description: string; thumbnail?: string; pubDate?: string; showTitle?: boolean; showDescription?: boolean }>;
 }
 

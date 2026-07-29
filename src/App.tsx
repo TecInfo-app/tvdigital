@@ -92,11 +92,18 @@ export default function App() {
   // Playlist state synced directly with Firestore "playlist" collection (like the HTML code)
   const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
 
   // Global toast alerts
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Form states (Nova / Editando Mídia)
+  
+  const [propPlaylistName, setPropPlaylistName] = useState('Geral');
+  const [propPaused, setPropPaused] = useState(false);
+  const [collapsedPlaylists, setCollapsedPlaylists] = useState({});
+  const [activePlaylistNames, setActivePlaylistNames] = useState({ 'Geral': true });
+
   const [propName, setPropName] = useState('');
   const [propDuration, setPropDuration] = useState<number | ''>('');
   const [inputType, setInputType] = useState<string>('video_url');
@@ -568,6 +575,8 @@ export default function App() {
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       order: firestorePlaylist.length + 1,
+      playlistName: propPlaylistName || 'Geral',
+      paused: propPaused,
       ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
     
@@ -596,11 +605,16 @@ export default function App() {
     setEndDate("");
     setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
     setRssConfiguredItems([]);
+    setIsMediaModalOpen(false);
+    setPropPlaylistName('Geral');
+    setPropPaused(false);
   };
 
   const editItem = (item: MediaItem) => {
     setEditingId(item.id);
     setPropName(item.name);
+    setPropPlaylistName(item.playlistName || 'Geral');
+    setPropPaused(!!item.paused);
     setPropDuration(item.duration !== undefined && item.duration !== null ? item.duration : "");
     
     let mappedType = item.type || 'upload_img';
@@ -623,6 +637,7 @@ export default function App() {
     } else {
       setRssConfiguredItems([]);
     }
+    setIsMediaModalOpen(true);
   };
 
   const deleteItem = async (id: string) => {
@@ -758,7 +773,8 @@ export default function App() {
   };
 
   // Player Loop Logic (like the HTML code)
-  const activePlaylist = firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
+  const basePlaylist = firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
+  const activePlaylist = basePlaylist.filter(item => activePlaylistNames[item.playlistName || 'Geral'] && !item.paused);
 
   const startPlayer = () => {
     if (!activePlaylist.length) {
@@ -1029,6 +1045,7 @@ export default function App() {
 
       {/* SCREEN: CONFIG / PLAYLIST & MÍDIAS (Exact HTML Form and List layout) */}
       {screen === 'config' && (
+        <>
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
           <button 
             onClick={() => setScreen('menu')} 
@@ -1037,269 +1054,345 @@ export default function App() {
             ⬅ Menu Principal
           </button>
 
-          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
-            <h2 style={{ marginTop: 0, marginBottom: '15px', fontSize: '20px', fontWeight: 700 }}>
-              {editingId ? "Editando Mídia" : "Nova Mídia"}
-            </h2>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>NOME DA MÍDIA</label>
-                <input 
-                  type="text" 
-                  value={propName}
-                  onChange={(e) => setPropName(e.target.value)}
-                  placeholder="Nome da Mídia"
-                  style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TEMPO (SEG)</label>
-                <input 
-                  type="number" 
-                  value={propDuration}
-                  onChange={(e) => setPropDuration(e.target.value ? Number(e.target.value) : '')}
-                  placeholder="Tempo (seg)"
-                  style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                />
-              </div>
-            </div>
-
-            <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', display: 'block', marginBottom: '6px' }}>
-              Dias de Exibição:
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px', background: '#f8fafc', padding: '10px', borderRadius: '10px' }}>
-              {nomesDias.map((dName, idx) => (
-                <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedDays.includes(idx)}
-                    onChange={() => toggleDay(idx)}
-                    style={{ width: 'auto', margin: 0 }}
-                  />
-                  <span>{dName}</span>
-                </label>
-              ))}
-            </div>
-
-            <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TIPO DE MÍDIA</label>
-            <select 
-              value={inputType}
-              onChange={(e) => {
-                const val = e.target.value;
-                setInputType(val);
-                if (val === 'rss' && !propUrl) {
-                  setPropUrl('https://g1.globo.com/rss/g1/');
-                }
-              }}
-              style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box', background: 'white' }}
-            >
-              <option value="rss">🗞️ Feed RSS / Notícias</option>
-              <option value="video_url">📹 URL de Vídeo (Dropbox)</option>
-              <option value="img_url">🖼️ URL de Imagem (Dropbox)</option>
-              <option value="widget">🌐 Widget / Site / Clima</option>
-              <option value="upload_video">📁 Upload Local VÍDEO</option>
-              <option value="upload_img">📁 Upload Local IMAGEM</option>
-            </select>
-
-            {inputType.startsWith('upload') ? (
-              <div style={{ marginBottom: '15px' }}>
-                <input 
-                  type="file" 
-                  accept={inputType.includes('video') ? 'video/*' : 'image/*'}
-                  onChange={async (e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      const file = e.target.files[0];
-                      if (file.type.startsWith('image/') || inputType.includes('img')) {
-                        const compressed = await compressImageFile(file);
-                        setFileData(compressed);
-                      } else {
-                        const reader = new FileReader();
-                        reader.onload = () => setFileData(reader.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    }
-                  }}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px' }}
-                />
-              </div>
-            ) : inputType === 'rss' ? (
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', display: 'block', marginBottom: '4px' }}>
-                  URL DO FEED RSS (XML OU NOTÍCIAS)
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input 
-                    type="url" 
-                    value={propUrl}
-                    onChange={(e) => setPropUrl(e.target.value)}
-                    placeholder="https://g1.globo.com/rss/g1/"
-                    style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const target = propUrl || 'https://g1.globo.com/rss/g1/';
-                      setRssUrlInput(target);
-                      fetchRssFeed(target);
-                      setIsRssModalOpen(true);
-                    }}
-                    style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', padding: '0 16px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >
-                    ⚡ Abrir Menu / Editar RSS
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <input 
-                  type="url" 
-                  value={propUrl}
-                  onChange={(e) => setPropUrl(e.target.value)}
-                  placeholder="https://..."
-                  style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                />
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <small style={{ fontWeight: 'bold', color: '#64748b' }}>Data Início:</small>
-                <input 
-                  type="datetime-local" 
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  style={{ width: '100%', padding: '10px', margin: '4px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <small style={{ fontWeight: 'bold', color: '#64748b' }}>Data Fim:</small>
-                <input 
-                  type="datetime-local" 
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  style={{ width: '100%', padding: '10px', margin: '4px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                />
-              </div>
-            </div>
-
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#334155' }}>Playlist & Mídias</h2>
             <button 
-              onClick={handleSaveMedia}
-              style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#10b981', color: 'white', marginBottom: editingId ? '10px' : '0' }}
+              onClick={() => { resetForm(); setIsMediaModalOpen(true); }}
+              style={{ background: '#3b82f6', color: 'white', padding: '12px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}
             >
-              Salvar Mídia
+              + Nova Mídia
             </button>
-
-            {editingId && (
-              <button 
-                onClick={resetForm}
-                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#ef4444', color: 'white' }}
-              >
-                Cancelar Edição
-              </button>
-            )}
           </div>
 
-          {/* Media List rendered as .media-item cards */}
+          {/* Media List grouped by playlist */}
           <div>
             <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-              Fila de Exibição ({activePlaylist.length})
+              Fila de Exibição ({activePlaylist.length} ativas)
             </h3>
 
-            {activePlaylist.length === 0 ? (
+            {basePlaylist.length === 0 ? (
               <div style={{ background: 'white', padding: '30px', borderRadius: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px', border: '1px solid #e2e8f0' }}>
                 Nenhuma mídia na playlist. Preencha os campos acima para cadastrar.
               </div>
             ) : (
-              activePlaylist.map((item, index) => {
-                let desc = (item.days && item.days.length < 7) 
-                  ? "📅 " + item.days.map(d => nomesDias[d]).join(", ") 
-                  : "📅 Todos os dias";
-
-                if (item.start || item.end) desc += ` | 🕒 Agendado`;
-                if (item.duration) desc += ` | ⏱️ ${item.duration}s`;
-
-                return (
-                  <div 
-                    key={item.id} 
-                    draggable={true}
-                    onDragStart={(e) => {
-                      setDraggedIndex(index);
-                      e.dataTransfer.effectAllowed = 'move';
-                      e.dataTransfer.setData('text/plain', String(index));
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const from = draggedIndex !== null ? draggedIndex : Number(e.dataTransfer.getData('text/plain'));
-                      reorderDrag(from, index);
-                      setDraggedIndex(null);
-                    }}
-                    onDragEnd={() => setDraggedIndex(null)}
-                    style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: '24px 60px 1fr auto', 
-                      alignItems: 'center', 
-                      padding: '12px', 
-                      background: 'white', 
-                      marginBottom: '8px', 
-                      borderRadius: '12px', 
-                      border: draggedIndex === index ? '2px dashed #6366f1' : '1px solid #e2e8f0',
-                      opacity: draggedIndex === index ? 0.4 : 1,
-                      cursor: 'grab',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <div style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
-                      ☰
+              (Object.entries(
+                basePlaylist.reduce((acc, item) => {
+                  const pName = item.playlistName || 'Geral';
+                  if (!acc[pName]) acc[pName] = [];
+                  acc[pName].push(item);
+                  return acc;
+                }, {} as Record<string, MediaItem[]>)
+              ) as [string, MediaItem[]][]).map(([pName, items]) => (
+                <div key={pName} style={{ marginBottom: '15px', background: 'white', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: collapsedPlaylists[pName] ? '0' : '15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={activePlaylistNames[pName] || false}
+                        onChange={(e) => setActivePlaylistNames(prev => ({ ...prev, [pName]: e.target.checked }))}
+                        style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                      />
+                      <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#334155' }}>
+                        Playlist: {pName} <span style={{ fontSize: '12px', color: '#94a3b8' }}>({items.length} itens)</span>
+                      </h4>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <button 
-                        onClick={() => reorder(index, -1)}
-                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', cursor: 'pointer', fontSize: '12px' }}
-                      >
-                        ▲
-                      </button>
-                      <button 
-                        onClick={() => reorder(index, 1)}
-                        style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', cursor: 'pointer', fontSize: '12px' }}
-                      >
-                        ▼
-                      </button>
-                    </div>
-
-                    <div style={{ paddingLeft: '10px', overflow: 'hidden' }}>
-                      <div style={{ fontWeight: 600, fontSize: '14px', color: '#334155' }}>
-                        {item.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
-                        {desc}
-                      </div>
-                    </div>
-
-                    <div>
-                      <button 
-                        onClick={() => editItem(item)}
-                        style={{ color: '#f59e0b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600 }}
-                      >
-                        Editar
-                      </button>
-                      <button 
-                        onClick={() => deleteItem(item.id)}
-                        style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '10px', fontSize: '18px', fontWeight: 'bold' }}
-                      >
-                        &times;
-                      </button>
-                    </div>
+                    <button 
+                      onClick={() => setCollapsedPlaylists(prev => ({ ...prev, [pName]: !prev[pName] }))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '14px', fontWeight: 'bold' }}
+                    >
+                      {collapsedPlaylists[pName] ? '▼ Mostrar' : '▲ Recolher'}
+                    </button>
                   </div>
-                );
-              })
+
+                  {!collapsedPlaylists[pName] && (
+                    <div>
+                      {items.map((item, index) => {
+                        let desc = (item.days && item.days.length < 7) 
+                          ? "📅 " + item.days.map(d => nomesDias[d]).join(", ") 
+                          : "📅 Todos os dias";
+                        if (item.start || item.end) desc += ` | 🕒 Agendado`;
+                        if (item.duration) desc += ` | ⏱️ ${item.duration}s`;
+                        if (item.paused) desc += ` | ⏸️ Pausado`;
+
+                        return (
+                          <div 
+                            key={item.id} 
+                            draggable={true}
+                            onDragStart={(e) => {
+                              setDraggedIndex(basePlaylist.findIndex(i => i.id === item.id));
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', String(basePlaylist.findIndex(i => i.id === item.id)));
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const from = draggedIndex !== null ? draggedIndex : Number(e.dataTransfer.getData('text/plain'));
+                              reorderDrag(from, basePlaylist.findIndex(i => i.id === item.id));
+                              setDraggedIndex(null);
+                            }}
+                            onDragEnd={() => setDraggedIndex(null)}
+                            style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: '24px 60px 1fr auto', 
+                              alignItems: 'center', 
+                              padding: '12px', 
+                              background: item.paused ? '#f8fafc' : 'white', 
+                              marginBottom: '8px', 
+                              borderRadius: '12px', 
+                              border: draggedIndex === basePlaylist.findIndex(i => i.id === item.id) ? '2px dashed #6366f1' : '1px solid #e2e8f0',
+                              opacity: draggedIndex === basePlaylist.findIndex(i => i.id === item.id) ? 0.4 : (item.paused ? 0.6 : 1),
+                              cursor: 'grab',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <div style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                              ☰
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <button 
+                                onClick={() => reorder(basePlaylist.findIndex(i => i.id === item.id), -1)}
+                                style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', cursor: 'pointer', fontSize: '12px' }}
+                              >
+                                ▲
+                              </button>
+                              <button 
+                                onClick={() => reorder(basePlaylist.findIndex(i => i.id === item.id), 1)}
+                                style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px', cursor: 'pointer', fontSize: '12px' }}
+                              >
+                                ▼
+                              </button>
+                            </div>
+                            <div style={{ paddingLeft: '10px', overflow: 'hidden' }}>
+                              <div style={{ fontWeight: 600, fontSize: '14px', color: '#334155', textDecoration: item.paused ? 'line-through' : 'none' }}>
+                                {item.name}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                                {desc}
+                              </div>
+                            </div>
+                            <div>
+                              <button 
+                                onClick={() => editItem(item)}
+                                style={{ color: '#f59e0b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                Editar
+                              </button>
+                              <button 
+                                onClick={() => deleteItem(item.id)}
+                                style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '10px', fontSize: '18px', fontWeight: 'bold' }}
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))
             )}
           </div>
         </div>
+      {isMediaModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px', overflowY: 'auto' }}>
+          <div style={{ background: 'white', padding: '30px', borderRadius: '24px', width: '100%', maxWidth: '700px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid #e2e8f0', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>
+              {editingId ? "Editando Mídia" : "Nova Mídia"}
+            </h2>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px', marginTop: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>NOME DA PLAYLIST (Grupo)</label>
+                      
+                      <input 
+                        type="text" 
+                        value={propPlaylistName}
+                        onChange={(e) => setPropPlaylistName(e.target.value)}
+                        placeholder="Ex: Manhã, Promoções, Geral"
+                        list="playlist-names"
+                        style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                      />
+                      <datalist id="playlist-names">
+                        {Array.from(new Set(basePlaylist.map(m => m.playlistName || 'Geral'))).map(name => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', marginTop: '15px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={propPaused}
+                          onChange={(e) => setPropPaused(e.target.checked)}
+                          style={{ marginRight: '8px', transform: 'scale(1.2)' }}
+                        />
+                        ⏸️ Pausar Mídia
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>NOME DA MÍDIA</label>
+                      <input 
+                        type="text" 
+                        value={propName}
+                        onChange={(e) => setPropName(e.target.value)}
+                        placeholder="Nome da Mídia"
+                        style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TEMPO (SEG)</label>
+                      <input 
+                        type="number" 
+                        value={propDuration}
+                        onChange={(e) => setPropDuration(e.target.value ? Number(e.target.value) : '')}
+                        placeholder="Tempo (seg)"
+                        style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+      
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', display: 'block', marginBottom: '6px' }}>
+                    Dias de Exibição:
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px', background: '#f8fafc', padding: '10px', borderRadius: '10px' }}>
+                    {nomesDias.map((dName, idx) => (
+                      <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedDays.includes(idx)}
+                          onChange={() => toggleDay(idx)}
+                          style={{ width: 'auto', margin: 0 }}
+                        />
+                        <span>{dName}</span>
+                      </label>
+                    ))}
+                  </div>
+      
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>TIPO DE MÍDIA</label>
+                  <select 
+                    value={inputType}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInputType(val);
+                      if (val === 'rss' && !propUrl) {
+                        setPropUrl('https://g1.globo.com/rss/g1/');
+                      }
+                    }}
+                    style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box', background: 'white' }}
+                  >
+                    <option value="rss">🗞️ Feed RSS / Notícias</option>
+                    <option value="video_url">📹 URL de Vídeo (Dropbox)</option>
+                    <option value="img_url">🖼️ URL de Imagem (Dropbox)</option>
+                    <option value="widget">🌐 Widget / Site / Clima</option>
+                    <option value="upload_video">📁 Upload Local VÍDEO</option>
+                    <option value="upload_img">📁 Upload Local IMAGEM</option>
+                  </select>
+      
+                  {inputType.startsWith('upload') ? (
+                    <div style={{ marginBottom: '15px' }}>
+                      <input 
+                        type="file" 
+                        accept={inputType.includes('video') ? 'video/*' : 'image/*'}
+                        onChange={async (e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            if (file.type.startsWith('image/') || inputType.includes('img')) {
+                              const compressed = await compressImageFile(file);
+                              setFileData(compressed);
+                            } else {
+                              const reader = new FileReader();
+                              reader.onload = () => setFileData(reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }
+                        }}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px' }}
+                      />
+                    </div>
+                  ) : inputType === 'rss' ? (
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', display: 'block', marginBottom: '4px' }}>
+                        URL DO FEED RSS (XML OU NOTÍCIAS)
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input 
+                          type="url" 
+                          value={propUrl}
+                          onChange={(e) => setPropUrl(e.target.value)}
+                          placeholder="https://g1.globo.com/rss/g1/"
+                          style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = propUrl || 'https://g1.globo.com/rss/g1/';
+                            setRssUrlInput(target);
+                            fetchRssFeed(target);
+                            setIsRssModalOpen(true);
+                          }}
+                          style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', padding: '0 16px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          ⚡ Abrir Menu / Editar RSS
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <input 
+                        type="url" 
+                        value={propUrl}
+                        onChange={(e) => setPropUrl(e.target.value)}
+                        placeholder="https://..."
+                        style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  )}
+      
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <small style={{ fontWeight: 'bold', color: '#64748b' }}>Data Início:</small>
+                      <input 
+                        type="datetime-local" 
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        style={{ width: '100%', padding: '10px', margin: '4px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <small style={{ fontWeight: 'bold', color: '#64748b' }}>Data Fim:</small>
+                      <input 
+                        type="datetime-local" 
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        style={{ width: '100%', padding: '10px', margin: '4px 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+      
+                  <button 
+                    onClick={handleSaveMedia}
+                    style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#10b981', color: 'white', marginBottom: '10px' }}
+                  >
+                    Salvar Mídia
+                  </button>
+                  <button 
+                    onClick={resetForm}
+                    style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#ef4444', color: 'white' }}
+                  >
+                    Cancelar
+                  </button>
+          </div>
+        </div>
+      )}
+      </>
       )}
 
       {/* SCREEN: RELATÓRIOS (Exact HTML structure) */}
