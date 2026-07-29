@@ -135,16 +135,19 @@ export default function App() {
     const apiUrl = getApiUrl(`/api/scrape-rss?url=${encodeURIComponent(formattedUrl)}`);
     
     const applyConfig = (items: any[]) => {
+      // If user typed a duration <= 120, assume they meant it as per-item duration. Otherwise fallback to 15.
+      const defaultDuration = (propDuration && Number(propDuration) > 0 && Number(propDuration) <= 120) ? Number(propDuration) : 15;
+      
       if (rssConfiguredItems && rssConfiguredItems.length > 0) {
         return items.map(item => {
           const configItem = rssConfiguredItems.find(c => c.title === item.title);
           if (configItem) {
-            return { ...item, selected: configItem.selected, duration: configItem.duration, title: configItem.title, description: configItem.description };
+            return { ...item, selected: configItem.selected, duration: configItem.duration || defaultDuration, title: configItem.title, description: configItem.description };
           }
-          return { ...item, selected: true };
+          return { ...item, selected: true, duration: defaultDuration };
         });
       }
-      return items.map((i: any) => ({ ...i, selected: true }));
+      return items.map((i: any) => ({ ...i, selected: true, duration: defaultDuration }));
     };
 
     try {
@@ -1651,14 +1654,14 @@ export default function App() {
                           <input 
                             type="number" 
                             min="5" 
-                            placeholder="Padrão"
+                            placeholder={propDuration ? `Padrão (${propDuration}s)` : "Padrão (15s)"}
                             value={item.duration || ''} 
                             onChange={(e) => {
                               const newItems = [...rssPreviewItems];
                               newItems[idx].duration = e.target.value ? parseInt(e.target.value) : '';
                               setRssPreviewItems(newItems);
                             }} 
-                            style={{ width: '70px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 6px' }} 
+                            style={{ width: '90px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '4px 6px' }} 
                             disabled={item.selected === false}
                           />
                         </div>
@@ -1691,10 +1694,12 @@ export default function App() {
                   if (!propName) {
                     setPropName(rssPresetName || 'Feed RSS - Notícias');
                   }
-                  if (!propDuration) {
-                    setPropDuration(15);
-                  }
-                  setRssConfiguredItems(rssPreviewItems.filter(i => i.selected !== false));
+                  
+                  const activeItems = rssPreviewItems.filter(i => i.selected !== false);
+                  const totalTime = activeItems.reduce((acc, item) => acc + (item.duration || 15), 0);
+                  setPropDuration(totalTime);
+                  
+                  setRssConfiguredItems(activeItems);
                   setIsRssModalOpen(false);
                   showToast("Feed RSS configurado!");
                 }}
