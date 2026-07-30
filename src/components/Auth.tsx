@@ -7,7 +7,6 @@ interface AuthProps {
   onSuccess: () => void;
 }
 
-// Remove unused state and imports
 export default function Auth({ onSuccess }: AuthProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,30 +40,31 @@ export default function Auth({ onSuccess }: AuthProps) {
   };
 
   return (
-    <div className="min-h-screen text-gray-900 flex items-center justify-center p-6 relative overflow-hidden font-inter">
-      {/* Background Orbs */}
-      <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full blur-[120px] bg-pink-500/10 pointer-events-none z-0" />
-      <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full blur-[120px] bg-blue-500/10 pointer-events-none z-0" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Soft elegant background gradients */}
+      <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-blue-50/50 to-transparent pointer-events-none z-0" />
 
-      <div className="w-full max-w-md bg-[#161033]/80 border border-gray-200 30 rounded-3xl p-8 md:p-10 shadow-2xl backdrop-blur-xl relative z-10 flex flex-col gap-6">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-8 md:p-10 shadow-lg relative z-10 flex flex-col gap-6">
         {/* Logo and Intro */}
         <div className="flex flex-col items-center text-center gap-2">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-primary/20">
-            <Tv className="w-7 h-7 text-gray-900" />
+          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+            <Tv className="w-6 h-6" />
           </div>
           <div className="flex items-center gap-1.5 mt-2">
-            <span className="text-xl font-black tracking-tight font-geist text-gray-900">FAST<span className="text-blue-600">PLAYER</span></span>
-            <Sparkles className="w-4 h-4 text-pink-600 animate-pulse" />
+            <span className="text-2xl font-extrabold tracking-tight text-slate-900">
+              FAST<span className="text-blue-600">PLAYER</span>
+            </span>
+            <Sparkles className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-xs font-semibold text-brand-outline mt-1 font-geist uppercase tracking-widest">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
             Sinalização Digital Inteligente
           </p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-500" />
             <span className="text-xs font-medium leading-relaxed">{error}</span>
           </div>
         )}
@@ -72,35 +72,35 @@ export default function Auth({ onSuccess }: AuthProps) {
         {/* Email Form */}
         <form onSubmit={handleEmailAuth} className="flex flex-col gap-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-brand-outline uppercase tracking-wider font-geist">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Endereço de E-mail
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-outline/80" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@empresa.com"
-                className="w-full bg-[#0d0921]/50 border border-gray-200 30 rounded-xl pl-11 pr-4 py-3 text-xs text-gray-900 placeholder:text-brand-outline/40 focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                className="w-full bg-white border border-slate-300 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-brand-outline uppercase tracking-wider font-geist">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Senha de Acesso
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-outline/80" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="******"
-                className="w-full bg-[#0d0921]/50 border border-gray-200 30 rounded-xl pl-11 pr-4 py-3 text-xs text-gray-900 placeholder:text-brand-outline/40 focus:ring-1 focus:ring-brand-primary focus:outline-none"
+                placeholder="Sua senha de acesso"
+                className="w-full bg-white border border-slate-300 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function Auth({ onSuccess }: AuthProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-brand-on-primary font-bold text-xs py-3.5 rounded-xl hover:opacity-95 transition-all shadow-md shadow-brand-primary/10 flex items-center justify-center gap-2 cursor-pointer mt-2 disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2 disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
