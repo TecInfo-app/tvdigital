@@ -145,3 +145,16 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+// Register Service Worker for offline resilience
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => {
+        console.log('Service Worker registrado com sucesso:', reg.scope);
+      })
+      .catch((err) => {
+        console.warn('Falha ao registrar Service Worker:', err);
+      });
+  });
+}

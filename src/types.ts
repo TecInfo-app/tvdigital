@@ -32,6 +32,8 @@ export interface Player {
   lastSync: string;
   cpu: number; // percentage
   bandwidth: number; // Mbps
+  assignedUserEmail?: string;
+  assignedUserId?: string;
 }
 
 export interface Playlist {
@@ -46,4 +48,6 @@ export interface LogEntry {
   action: string;
   time: string;
   player?: string;
+  mediaName?: string;
+  timestamp?: number;
 }

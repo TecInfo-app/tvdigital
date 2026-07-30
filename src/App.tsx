@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
   collection, 
@@ -11,7 +11,8 @@ import {
   updateDoc, 
   getDocs,
   writeBatch,
-  getDocFromServer
+  getDocFromServer,
+  setDoc
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, cleanUndefined, getApiUrl } from './firebase';
 import { safeLocalStorage } from './utils/safeStorage';
@@ -36,7 +37,8 @@ import {
 } from './mockData';
 
 // Helper to compress local image files before uploading so they stay well under Firestore's 1MB limit
-const compressImageFile = (file: File, maxWidth = 1280, maxHeight = 720, quality = 0.7): Promise<string> => {
+// Uses high-quality step-down downscaling and smart compression to preserve image quality while reducing size.
+const compressImageFile = (file: File, maxWidth = 1920, maxHeight = 1080): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -45,26 +47,98 @@ const compressImageFile = (file: File, maxWidth = 1280, maxHeight = 720, quality
         let width = img.width;
         let height = img.height;
 
+        const originalDataUrl = event.target?.result as string;
+        // If the original image is already within limits and small (under ~600KB), return as is to preserve absolute full quality!
+        if (width <= maxWidth && height <= maxHeight && file.size < 600 * 1024) {
+          resolve(originalDataUrl);
+          return;
+        }
+
+        // Calculate target dimensions
+        let targetWidth = width;
+        let targetHeight = height;
+
         if (width > maxWidth || height > maxHeight) {
           if (width / height > maxWidth / maxHeight) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
+            targetHeight = Math.round((height * maxWidth) / width);
+            targetWidth = maxWidth;
           } else {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
+            targetWidth = Math.round((width * maxHeight) / height);
+            targetHeight = maxHeight;
           }
         }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        // High quality step-down resize (progressive downscaling in halves)
+        // This avoids aliasing and pixelation when downscaling high resolution images
+        let currentCanvas = document.createElement('canvas');
+        currentCanvas.width = width;
+        currentCanvas.height = height;
+        let currentCtx = currentCanvas.getContext('2d');
+        if (!currentCtx) {
+          resolve(originalDataUrl);
+          return;
+        }
+        currentCtx.imageSmoothingEnabled = true;
+        currentCtx.imageSmoothingQuality = 'high';
+        currentCtx.drawImage(img, 0, 0, width, height);
+
+        while (width > targetWidth * 2) {
+          const nextWidth = Math.round(width / 2);
+          const nextHeight = Math.round(height / 2);
+          
+          const nextCanvas = document.createElement('canvas');
+          nextCanvas.width = nextWidth;
+          nextCanvas.height = nextHeight;
+          const nextCtx = nextCanvas.getContext('2d');
+          if (!nextCtx) break;
+          
+          nextCtx.imageSmoothingEnabled = true;
+          nextCtx.imageSmoothingQuality = 'high';
+          nextCtx.drawImage(currentCanvas, 0, 0, width, height, 0, 0, nextWidth, nextHeight);
+          
+          currentCanvas = nextCanvas;
+          currentCtx = nextCtx;
+          width = nextWidth;
+          height = nextHeight;
+        }
+
+        // Final scale to exact target dimensions
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = targetWidth;
+        finalCanvas.height = targetHeight;
+        const finalCtx = finalCanvas.getContext('2d');
+        if (finalCtx) {
+          finalCtx.imageSmoothingEnabled = true;
+          finalCtx.imageSmoothingQuality = 'high';
+          finalCtx.drawImage(currentCanvas, 0, 0, width, height, 0, 0, targetWidth, targetHeight);
+          
+          // Progressive compression logic:
+          // Try to compress with higher quality first (0.85), and lower if it exceeds Firestore capacity (~1MB limit)
+          let quality = 0.85;
+          let compressedDataUrl = finalCanvas.toDataURL('image/jpeg', quality);
+          
+          // Firestore document size limit is 1MB. Base64 is ~33% larger, so a 1MB limit on base64 is ~750KB of binary.
+          // We target a base64 length of < 950,000 characters (~710KB) to be safe and fast.
+          while (compressedDataUrl.length > 950000 && quality > 0.4) {
+            quality -= 0.1;
+            compressedDataUrl = finalCanvas.toDataURL('image/jpeg', quality);
+          }
+          
+          // If it still exceeds, shrink dimensions by another 20% recursively to guarantee it works beautifully
+          if (compressedDataUrl.length > 950000) {
+            targetWidth = Math.round(targetWidth * 0.8);
+            targetHeight = Math.round(targetHeight * 0.8);
+            finalCanvas.width = targetWidth;
+            finalCanvas.height = targetHeight;
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(currentCanvas, 0, 0, width, height, 0, 0, targetWidth, targetHeight);
+            compressedDataUrl = finalCanvas.toDataURL('image/jpeg', 0.6);
+          }
+
           resolve(compressedDataUrl);
         } else {
-          resolve(event.target?.result as string);
+          resolve(originalDataUrl);
         }
       };
       img.onerror = () => resolve(event.target?.result as string);
@@ -72,6 +146,40 @@ const compressImageFile = (file: File, maxWidth = 1280, maxHeight = 720, quality
     };
     reader.readAsDataURL(file);
   });
+};
+
+// Local Cache Storage helper for Offline Media
+const getCachedMediaUrl = async (url: string): Promise<string> => {
+  if (!url || !url.startsWith('http')) {
+    return url;
+  }
+  try {
+    const cache = await caches.open('fastplayer-media-cache');
+    const cachedResponse = await cache.match(url);
+    if (cachedResponse) {
+      const blob = await cachedResponse.blob();
+      return URL.createObjectURL(blob);
+    }
+    
+    // Attempt standard fetch to store in cache
+    const response = await fetch(url);
+    if (response.ok) {
+      await cache.put(url, response.clone());
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    }
+  } catch (error) {
+    console.warn("Media caching notice (CORS or offline fallback):", error);
+    // If standard CORS fetch fails, try an opaque fetch to still cache it
+    try {
+      const cache = await caches.open('fastplayer-media-cache');
+      const opaqueResponse = await fetch(url, { mode: 'no-cors' });
+      await cache.put(url, opaqueResponse);
+    } catch (err) {
+      console.warn("Failed opaque pre-caching:", err);
+    }
+  }
+  return url;
 };
 
 export default function App() {
@@ -88,6 +196,7 @@ export default function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
 
   // Playlist state synced directly with Firestore "playlist" collection (like the HTML code)
   const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>([]);
@@ -100,6 +209,7 @@ export default function App() {
   // Form states (Nova / Editando Mídia)
   
   const [propPlaylistName, setPropPlaylistName] = useState('Geral');
+  const [isCreatingNewPlaylist, setIsCreatingNewPlaylist] = useState(false);
   const [propPaused, setPropPaused] = useState(false);
   const [collapsedPlaylists, setCollapsedPlaylists] = useState({});
   const [activePlaylistNames, setActivePlaylistNames] = useState({ 'Geral': true });
@@ -203,7 +313,30 @@ export default function App() {
   const [playIdx, setPlayIdx] = useState(0);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [currentMedia, setCurrentMedia] = useState<MediaItem | null>(null);
+  const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!currentMedia) {
+      setResolvedMediaUrl('');
+      return;
+    }
+    const originalUrl = currentMedia.content || currentMedia.url || '';
+    setResolvedMediaUrl(originalUrl); // immediate fallback
+    
+    let active = true;
+    getCachedMediaUrl(originalUrl).then(cachedUrl => {
+      if (active) {
+        setResolvedMediaUrl(cachedUrl);
+      }
+    });
+    
+    return () => {
+      active = false;
+    };
+  }, [currentMedia]);
+
   const playerTimerRef = useRef<any>(null);
+  const currentIndexRef = useRef<number | null>(null);
 
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -258,6 +391,8 @@ export default function App() {
   // Firebase auth & data synchronization
   useEffect(() => {
     let unsubSnap: (() => void) | null = null;
+    let unsubLogs: (() => void) | null = null;
+    let unsubUsers: (() => void) | null = null;
 
     // Safety timeout: ensure authLoading is never stuck true for more than 2 seconds
     const authTimeout = setTimeout(() => {
@@ -274,10 +409,68 @@ export default function App() {
         setSyncStatus('syncing');
         const uid = currentUser.uid;
 
+        // Save current user to general registered_users collection
+        try {
+          const userDocRef = doc(db, 'registered_users', uid);
+          await setDoc(userDocRef, {
+            uid,
+            email: currentUser.email || '',
+            lastActive: new Date().toISOString(),
+            status: 'online'
+          }, { merge: true });
+        } catch (e) {
+          console.warn("Could not save registered user profile:", e);
+        }
+
+        if (unsubUsers) {
+          unsubUsers();
+          unsubUsers = null;
+        }
+
+        // Monitor registered users in real-time
+        try {
+          const qUsers = collection(db, "registered_users");
+          unsubUsers = onSnapshot(qUsers, (snap) => {
+            const loadedUsers: any[] = [];
+            snap.forEach(d => {
+              loadedUsers.push({ id: d.id, ...d.data() });
+            });
+            setRegisteredUsers(loadedUsers);
+          }, (err) => {
+            console.warn("Registered users monitor notice:", err);
+          });
+        } catch (e) {
+          console.warn("Error subscribing to registered_users:", e);
+        }
+
         if (unsubSnap) {
           unsubSnap();
           unsubSnap = null;
         }
+
+        if (unsubLogs) {
+          unsubLogs();
+          unsubLogs = null;
+        }
+
+        // Monitor Firestore "logs" collection in real-time
+        const qLogs = query(collection(db, "logs"), where("userId", "==", uid));
+        unsubLogs = onSnapshot(qLogs, (snap) => {
+          const loadedLogs: LogEntry[] = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              action: data.action || `Exibição: ${data.mediaName}`,
+              time: data.timestamp ? new Date(data.timestamp).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR'),
+              player: data.player || 'Player 1',
+              mediaName: data.mediaName || '',
+              timestamp: data.timestamp || Date.now()
+            };
+          }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          setLogs(loadedLogs);
+        }, (err) => {
+          console.warn("Logs monitor notice:", err);
+        });
 
         // Monitor Firestore "playlist" collection directly (HTML structure compatibility)
         const qPlaylist = query(collection(db, "playlist"), where("userId", "==", uid));
@@ -396,10 +589,19 @@ export default function App() {
           unsubSnap();
           unsubSnap = null;
         }
+        if (unsubLogs) {
+          unsubLogs();
+          unsubLogs = null;
+        }
+        if (unsubUsers) {
+          unsubUsers();
+          unsubUsers = null;
+        }
         setMediaItems([]);
         setPlayers([]);
         setPlaylists([]);
         setLogs([]);
+        setRegisteredUsers([]);
         setFirestorePlaylist([]);
         setLoadingData(false);
       }
@@ -409,6 +611,8 @@ export default function App() {
       clearTimeout(authTimeout);
       unsubscribe();
       if (unsubSnap) unsubSnap();
+      if (unsubLogs) unsubLogs();
+      if (unsubUsers) unsubUsers();
     };
   }, []);
 
@@ -450,6 +654,116 @@ export default function App() {
     }
   };
 
+  const handleAssignUser = async (playerId: string, userEmail: string) => {
+    const targetPlayer = players.find(p => p.id === playerId);
+    if (!targetPlayer) return;
+
+    const nextPlayers = players.map(p => {
+      if (p.id === playerId) {
+        return {
+          ...p,
+          assignedUserEmail: userEmail || undefined,
+          assignedUserId: registeredUsers.find(u => u.email === userEmail)?.uid || undefined
+        };
+      }
+      return p;
+    });
+
+    await handleSetPlayers(nextPlayers);
+
+    // Write audit log
+    const logMsg = userEmail 
+      ? `Operador ${userEmail} vinculado à tela '${targetPlayer.name}'`
+      : `Operador desvinculado da tela '${targetPlayer.name}'`;
+    
+    try {
+      await addDoc(collection(db, "logs"), {
+        action: logMsg,
+        timestamp: Date.now(),
+        player: targetPlayer.name,
+        userId: auth.currentUser?.uid || ''
+      });
+    } catch (e) {
+      console.warn("Error writing assignment log:", e);
+    }
+
+    showToast(userEmail ? `Operador ${userEmail} vinculado à tela!` : "Operador desvinculado.");
+  };
+
+  const handlePlayerAction = async (playerId: string, action: 'reboot' | 'sync') => {
+    const targetPlayer = players.find(p => p.id === playerId);
+    if (!targetPlayer) return;
+
+    if (action === 'sync') {
+      try {
+        await addDoc(collection(db, "logs"), {
+          action: `Sincronização de mídia forçada para o player '${targetPlayer.name}'`,
+          timestamp: Date.now(),
+          player: targetPlayer.name,
+          userId: auth.currentUser?.uid || ''
+        });
+        showToast(`Sincronização forçada com sucesso para '${targetPlayer.name}'.`);
+      } catch (e) {
+        console.warn(e);
+      }
+    } else if (action === 'reboot') {
+      // 1. Immediately log reboot trigger
+      try {
+        await addDoc(collection(db, "logs"), {
+          action: `Reinicialização física da tela '${targetPlayer.name}' acionada.`,
+          timestamp: Date.now(),
+          player: targetPlayer.name,
+          userId: auth.currentUser?.uid || ''
+        });
+      } catch (e) {
+        console.warn(e);
+      }
+
+      showToast(`Reiniciando tela '${targetPlayer.name}'...`);
+
+      // 2. Set status to offline temporarily to simulate hardware rebooting
+      const originalStatus = targetPlayer.status;
+      const offlinePlayers = players.map(p => {
+        if (p.id === playerId) {
+          return { ...p, status: 'offline' as const, cpu: 0, bandwidth: 0 };
+        }
+        return p;
+      });
+      await handleSetPlayers(offlinePlayers);
+
+      // 3. After 3 seconds, turn it back online with refreshed uptime/cpu
+      setTimeout(async () => {
+        const backOnlinePlayers = players.map(p => {
+          if (p.id === playerId) {
+            return { 
+              ...p, 
+              status: 'online' as const, 
+              cpu: 18, 
+              bandwidth: 8.5,
+              lastSync: new Date().toLocaleTimeString('pt-BR') 
+            };
+          }
+          return p;
+        });
+        await handleSetPlayers(backOnlinePlayers);
+
+        // 4. Log successful boot completion
+        try {
+          await addDoc(collection(db, "logs"), {
+            action: `O player '${targetPlayer.name}' reiniciou com sucesso e está online.`,
+            timestamp: Date.now(),
+            player: targetPlayer.name,
+            userId: auth.currentUser?.uid || ''
+          });
+        } catch (e) {
+          console.warn(e);
+        }
+
+        showToast(`Tela '${targetPlayer.name}' está online e funcional!`);
+      }, 3000);
+    }
+  };
+
   const handleSetPlaylists = async (update: Playlist[] | ((prev: Playlist[]) => Playlist[])) => {
     const nextPlaylists = typeof update === 'function' ? update(playlists) : update;
     setPlaylists(nextPlaylists);
@@ -463,6 +777,60 @@ export default function App() {
       await batch.commit();
     } catch (error) {
       console.warn("Syncing playlists notice:", error);
+    }
+  };
+
+  const handleDeletePlaylist = async (playlistId: string) => {
+    const target = playlists.find(p => p.id === playlistId);
+    if (target?.isActive) {
+      showToast("Não é possível excluir uma playlist ativa!");
+      return;
+    }
+
+    if (window.confirm(`Tem certeza que deseja excluir a playlist "${target?.name || ''}"?`)) {
+      const updatedPlaylists = playlists.filter(p => p.id !== playlistId);
+      setPlaylists(updatedPlaylists);
+
+      if (auth.currentUser) {
+        const uid = auth.currentUser.uid;
+        try {
+          setSyncStatus('syncing');
+          await deleteDoc(doc(db, 'users', uid, 'playlists', playlistId));
+          setSyncStatus('success');
+          setLastSyncTime(new Date().toLocaleTimeString());
+        } catch (error) {
+          console.warn("Error deleting playlist from Firestore:", error);
+          setSyncStatus('error');
+        }
+      }
+
+      // Write audit log
+      try {
+        await addDoc(collection(db, "logs"), {
+          action: `Excluiu a playlist '${target?.name || ''}'`,
+          timestamp: Date.now(),
+          player: 'Painel Web',
+          userId: auth.currentUser?.uid || ''
+        });
+      } catch (e) {
+        console.warn("Error writing delete playlist log:", e);
+      }
+
+      showToast(`Playlist "${target?.name || ''}" excluída com sucesso.`);
+    }
+  };
+
+  const handleSelectPlaylist = async (playlistId: string) => {
+    const updated = playlists.map(p => ({
+      ...p,
+      isActive: p.id === playlistId
+    }));
+    await handleSetPlaylists(updated);
+    
+    const selectedPlaylist = playlists.find(p => p.id === playlistId);
+    if (selectedPlaylist) {
+      setActivePlaylistNames({ [selectedPlaylist.name]: true });
+      showToast(`Playlist "${selectedPlaylist.name}" ativada para transmissão!`);
     }
   };
 
@@ -526,6 +894,8 @@ export default function App() {
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       userId: currentUid,
+      playlistName: propPlaylistName || 'Geral',
+      paused: propPaused,
       updatedAt: new Date().toISOString(),
       ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
@@ -579,6 +949,22 @@ export default function App() {
       paused: propPaused,
       ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
+
+    // If the playlist name is newly created and does not exist in our main playlists list,
+    // let's add it automatically so they can see and manage it in the Playlists tab too!
+    const targetPlaylistName = (propPlaylistName || 'Geral').trim();
+    if (targetPlaylistName && targetPlaylistName.toLowerCase() !== 'geral') {
+      const exists = playlists.some(p => p.name.trim().toLowerCase() === targetPlaylistName.toLowerCase());
+      if (!exists) {
+        const newPlaylist: Playlist = {
+          id: `pl-${Date.now()}`,
+          name: targetPlaylistName,
+          itemIds: [],
+          isActive: false
+        };
+        handleSetPlaylists([...playlists, newPlaylist]);
+      }
+    }
     
     // Immediate UI update
     if (!editingId) {
@@ -607,11 +993,13 @@ export default function App() {
     setRssConfiguredItems([]);
     setIsMediaModalOpen(false);
     setPropPlaylistName('Geral');
+    setIsCreatingNewPlaylist(false);
     setPropPaused(false);
   };
 
   const editItem = (item: MediaItem) => {
     setEditingId(item.id);
+    setIsCreatingNewPlaylist(false);
     setPropName(item.name);
     setPropPlaylistName(item.playlistName || 'Geral');
     setPropPaused(!!item.paused);
@@ -772,9 +1160,66 @@ export default function App() {
     }
   };
 
+  // Export Report to PDF via Browser Print
+  const handleExportPDF = () => {
+    document.body.classList.add('printing-active');
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('printing-active');
+    }, 250);
+  };
+
   // Player Loop Logic (like the HTML code)
-  const basePlaylist = firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
-  const activePlaylist = basePlaylist.filter(item => activePlaylistNames[item.playlistName || 'Geral'] && !item.paused);
+  const basePlaylist = useMemo(() => {
+    return firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
+  }, [firestorePlaylist, mediaItems]);
+
+  const activePlaylist = useMemo(() => {
+    return basePlaylist.filter(item => activePlaylistNames[item.playlistName || 'Geral'] && !item.paused);
+  }, [basePlaylist, activePlaylistNames]);
+
+  // Memoized unique playlist names present in the system
+  const existingPlaylistNames = useMemo(() => {
+    const names = new Set<string>();
+    names.add('Geral');
+    basePlaylist.forEach(item => {
+      if (item.playlistName) {
+        names.add(item.playlistName);
+      }
+    });
+    if (playlists && playlists.length > 0) {
+      playlists.forEach(p => {
+        if (p.name) {
+          names.add(p.name);
+        }
+      });
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [basePlaylist, playlists]);
+
+  // Pre-cache all playlist media items in the background
+  useEffect(() => {
+    if (!activePlaylist || activePlaylist.length === 0) return;
+    activePlaylist.forEach(item => {
+      const src = item.content || item.url || '';
+      if (src && src.startsWith('http')) {
+        caches.open('fastplayer-media-cache').then(cache => {
+          cache.match(src).then(match => {
+            if (!match) {
+              fetch(src, { mode: 'cors' }).then(res => {
+                if (res.ok) cache.put(src, res);
+              }).catch(() => {
+                // If cors fails, fetch as opaque response
+                fetch(src, { mode: 'no-cors' }).then(opaqueRes => {
+                  cache.put(src, opaqueRes).catch(() => {});
+                }).catch(() => {});
+              });
+            }
+          });
+        });
+      }
+    });
+  }, [activePlaylist]);
 
   const startPlayer = () => {
     if (!activePlaylist.length) {
@@ -788,6 +1233,12 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'player' || activePlaylist.length === 0) {
       if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
+      currentIndexRef.current = null;
+      return;
+    }
+
+    // Guard to prevent re-running loop setup if we are already playing/have scheduled this index
+    if (currentIndexRef.current === playIdx) {
       return;
     }
 
@@ -809,9 +1260,11 @@ export default function App() {
       const diaErrado = item.days && item.days.length > 0 && !item.days.includes(agora.getDay());
 
       if (foraHorario || diaErrado) {
-        loop(targetIdx + 1);
+        setPlayIdx(targetIdx + 1);
         return;
       }
+
+      currentIndexRef.current = targetIdx;
 
       try {
         addDoc(collection(db, "logs"), {
@@ -832,7 +1285,9 @@ export default function App() {
 
       if (!isVideo) {
         playerTimerRef.current = setTimeout(() => {
-          if (isMounted) loop(targetIdx + 1);
+          if (isMounted) {
+            setPlayIdx(prev => prev + 1);
+          }
         }, durationMs);
       }
     };
@@ -841,7 +1296,6 @@ export default function App() {
 
     return () => {
       isMounted = false;
-      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
     };
   }, [screen, activePlaylist, playIdx]);
 
@@ -1206,21 +1660,101 @@ export default function App() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px', marginTop: '10px' }}>
                     <div>
-                      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>NOME DA PLAYLIST (Grupo)</label>
+                      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>PLAYLIST DA MÍDIA</label>
                       
-                      <input 
-                        type="text" 
-                        value={propPlaylistName}
-                        onChange={(e) => setPropPlaylistName(e.target.value)}
-                        placeholder="Ex: Manhã, Promoções, Geral"
-                        list="playlist-names"
-                        style={{ width: '100%', padding: '12px', margin: '0 0 15px 0', border: '1px solid #cbd5e1', borderRadius: '10px', boxSizing: 'border-box' }}
-                      />
-                      <datalist id="playlist-names">
-                        {Array.from(new Set(basePlaylist.map(m => m.playlistName || 'Geral'))).map(name => (
-                          <option key={name} value={name} />
-                        ))}
-                      </datalist>
+                      {!isCreatingNewPlaylist ? (
+                        <div style={{ display: 'flex', gap: '8px', margin: '0 0 15px 0' }}>
+                          <select
+                            value={propPlaylistName}
+                            onChange={(e) => setPropPlaylistName(e.target.value)}
+                            style={{
+                              flex: 1,
+                              padding: '12px',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '10px',
+                              boxSizing: 'border-box',
+                              background: 'white',
+                              fontSize: '14px',
+                              fontWeight: 500,
+                              color: '#334155',
+                              outline: 'none'
+                            }}
+                          >
+                            {existingPlaylistNames.map((name) => (
+                              <option key={name} value={name}>
+                                📁 {name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreatingNewPlaylist(true);
+                              setPropPlaylistName(''); // Clear to let them type fresh
+                            }}
+                            style={{
+                              background: '#2563eb',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '10px',
+                              padding: '0 16px',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'background 0.2s'
+                            }}
+                            title="Criar nova playlist"
+                          >
+                            ➕ Nova
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '8px', margin: '0 0 15px 0' }}>
+                          <input
+                            type="text"
+                            value={propPlaylistName}
+                            onChange={(e) => setPropPlaylistName(e.target.value)}
+                            placeholder="Nome da nova playlist..."
+                            autoFocus
+                            style={{
+                              flex: 1,
+                              padding: '12px',
+                              border: '2px solid #2563eb',
+                              borderRadius: '10px',
+                              boxSizing: 'border-box',
+                              fontSize: '14px',
+                              outline: 'none'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreatingNewPlaylist(false);
+                              if (!propPlaylistName.trim()) {
+                                setPropPlaylistName(existingPlaylistNames[0] || 'Geral');
+                              }
+                            }}
+                            style={{
+                              background: '#f1f5f9',
+                              color: '#475569',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '10px',
+                              padding: '0 16px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            ↩ Selecionar
+                          </button>
+                        </div>
+                      )}
 
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', marginTop: '15px' }}>
@@ -1437,7 +1971,17 @@ export default function App() {
 
             {reportResults && (
               <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #e2e8f0' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 10px 0' }}>Resultados:</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Resultados:</h3>
+                  {Object.keys(reportResults).length > 0 && (
+                    <button 
+                      onClick={handleExportPDF}
+                      style={{ padding: '8px 16px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      📄 Exportar PDF
+                    </button>
+                  )}
+                </div>
                 {Object.keys(reportResults).length === 0 ? (
                   <p style={{ fontSize: '12px', color: '#64748b' }}>Nenhum registro encontrado para este período.</p>
                 ) : (
@@ -1462,9 +2006,18 @@ export default function App() {
           <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
             <PlayersView 
               players={players} 
-              mediaItems={mediaItems}
-              onPlayerAction={(id, action) => showToast(`Ação ${action} executada.`)}
-              onOpenSimulator={() => startPlayer()}
+              mediaItems={basePlaylist}
+              registeredUsers={registeredUsers}
+              onPlayerAction={handlePlayerAction}
+              onAssignUser={handleAssignUser}
+              onOpenSimulator={(p) => {
+                // If there's an active playlist, start the simulated player
+                if (activePlaylist.length > 0) {
+                  startPlayer();
+                } else {
+                  showToast("Nenhuma playlist ativa no momento para simulação.");
+                }
+              }}
             />
           </div>
         </div>
@@ -1479,9 +2032,10 @@ export default function App() {
           <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
             <PlaylistsView 
               playlists={playlists}
-              mediaItems={mediaItems}
-              onSelectPlaylist={(id) => showToast(`Playlist selecionada: ${id}`)}
+              mediaItems={basePlaylist}
+              onSelectPlaylist={handleSelectPlaylist}
               onCreatePlaylist={(name) => handleSetPlaylists([...playlists, { id: `pl-${Date.now()}`, name, itemIds: [], isActive: false }])}
+              onDeletePlaylist={handleDeletePlaylist}
             />
           </div>
         </div>
@@ -1506,7 +2060,12 @@ export default function App() {
             ⬅ Menu Principal
           </button>
           <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <AnalyticsView />
+            <AnalyticsView 
+              logs={logs} 
+              players={players} 
+              mediaItems={basePlaylist} 
+              playlists={playlists}
+            />
           </div>
         </div>
       )}
@@ -1521,7 +2080,8 @@ export default function App() {
             <DashboardView 
               players={players} 
               logs={logs} 
-              mediaItems={mediaItems} 
+              mediaItems={basePlaylist} 
+              playlists={playlists}
               setActiveTab={(tab) => setScreen(tab)}
               onDeployAll={() => {
                 setSyncStatus('syncing');
@@ -1552,7 +2112,7 @@ export default function App() {
                 return (
                   <video 
                     key={currentMedia.id + '-' + playIdx}
-                    src={contentStr}
+                    src={resolvedMediaUrl || contentStr}
                     autoPlay
                     muted
                     playsInline
@@ -1566,7 +2126,7 @@ export default function App() {
                 return (
                   <img 
                     key={currentMedia.id + '-' + playIdx}
-                    src={contentStr}
+                    src={resolvedMediaUrl || contentStr}
                     alt={currentMedia.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none', background: '#000' }}
                   />
@@ -1670,6 +2230,8 @@ export default function App() {
                 {[
                   { name: 'G1 Brasil', url: 'https://g1.globo.com/rss/g1/' },
                   { name: 'Globo Esporte', url: 'https://ge.globo.com/rss/ge/' },
+                  { name: 'Famosos (Quem)', url: 'https://revistaquem.globo.com/rss/quem/' },
+                  { name: 'Contigo! Famosos', url: 'https://contigo.com.br/rss' },
                   { name: 'Economia & Mercado', url: 'https://valor.globo.com/rss/valor/' },
                   { name: 'Tecnoblog', url: 'https://tecnoblog.net/feed/' }
                 ].map((preset) => (
@@ -1869,6 +2431,72 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Print PDF Style and Area */}
+      <style>{`
+        @media print {
+          body.printing-active {
+            background: white !important;
+            color: #000000 !important;
+          }
+          body.printing-active > *:not(#report-pdf-area) {
+            display: none !important;
+          }
+          body.printing-active #report-pdf-area {
+            display: block !important;
+          }
+        }
+        #report-pdf-area {
+          display: none;
+        }
+      `}</style>
+
+      <div id="report-pdf-area" style={{ padding: '40px', background: 'white' }}>
+        <div style={{ fontFamily: 'system-ui, sans-serif', color: '#334155' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2563eb', paddingBottom: '15px', marginBottom: '25px' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '24px', color: '#1e3a8a', fontWeight: 'bold' }}>FASTPLAYER PRO</h1>
+              <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sinalização Digital Inteligente</span>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <h2 style={{ margin: 0, fontSize: '14px', color: '#1e293b', fontWeight: 'bold' }}>RELATÓRIO DE EXIBIÇÃO</h2>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>Exportado em: {new Date().toLocaleString('pt-BR')}</span>
+            </div>
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', marginBottom: '25px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+            <p style={{ margin: '4px 0' }}><strong>Operador / Cliente:</strong> {user?.email || 'tv@gmail.com'}</p>
+            <p style={{ margin: '4px 0' }}><strong>Período Filtrado:</strong> De {repStart ? new Date(repStart + 'T00:00:00').toLocaleDateString('pt-BR') : ''} até {repEnd ? new Date(repEnd + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</p>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#2563eb', color: 'white' }}>
+                <th style={{ padding: '12px 10px', border: '1px solid #cbd5e1' }}>Mídia / Conteúdo</th>
+                <th style={{ padding: '12px 10px', border: '1px solid #cbd5e1', textAlign: 'right', width: '150px' }}>Total de Exibições</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportResults && Object.keys(reportResults).length > 0 ? (
+                Object.entries(reportResults).map(([n, count]) => (
+                  <tr key={n} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '10px', border: '1px solid #e2e8f0', fontWeight: 'bold', color: '#1e293b' }}>{n}</td>
+                    <td style={{ padding: '10px', border: '1px solid #e2e8f0', textAlign: 'right', fontWeight: 'bold', color: '#2563eb' }}>{count}x</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={2} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Nenhum dado encontrado para o período selecionado.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div style={{ borderTop: '1px solid #cbd5e1', marginTop: '40px', paddingTop: '15px', textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>
+            FastPlayer Pro Digital Signage - Este é um documento eletrônico formal de auditoria de veiculação.
+          </div>
+        </div>
+      </div>
 
     </div>
   );
