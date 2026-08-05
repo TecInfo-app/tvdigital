@@ -11,8 +11,7 @@ import {
   updateDoc, 
   getDocs,
   writeBatch,
-  getDocFromServer,
-  setDoc
+  getDocFromServer
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, cleanUndefined, getApiUrl } from './firebase';
 import { safeLocalStorage } from './utils/safeStorage';
@@ -196,7 +195,6 @@ export default function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
 
   // Playlist state synced directly with Firestore "playlist" collection (like the HTML code)
   const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>([]);
@@ -392,7 +390,6 @@ export default function App() {
   useEffect(() => {
     let unsubSnap: (() => void) | null = null;
     let unsubLogs: (() => void) | null = null;
-    let unsubUsers: (() => void) | null = null;
 
     // Safety timeout: ensure authLoading is never stuck true for more than 2 seconds
     const authTimeout = setTimeout(() => {
@@ -409,40 +406,6 @@ export default function App() {
         setSyncStatus('syncing');
         const uid = currentUser.uid;
 
-        // Save current user to general registered_users collection
-        try {
-          const userDocRef = doc(db, 'registered_users', uid);
-          await setDoc(userDocRef, {
-            uid,
-            email: currentUser.email || '',
-            lastActive: new Date().toISOString(),
-            status: 'online'
-          }, { merge: true });
-        } catch (e) {
-          console.warn("Could not save registered user profile:", e);
-        }
-
-        if (unsubUsers) {
-          unsubUsers();
-          unsubUsers = null;
-        }
-
-        // Monitor registered users in real-time
-        try {
-          const qUsers = collection(db, "registered_users");
-          unsubUsers = onSnapshot(qUsers, (snap) => {
-            const loadedUsers: any[] = [];
-            snap.forEach(d => {
-              loadedUsers.push({ id: d.id, ...d.data() });
-            });
-            setRegisteredUsers(loadedUsers);
-          }, (err) => {
-            console.warn("Registered users monitor notice:", err);
-          });
-        } catch (e) {
-          console.warn("Error subscribing to registered_users:", e);
-        }
-
         if (unsubSnap) {
           unsubSnap();
           unsubSnap = null;
@@ -453,8 +416,24 @@ export default function App() {
           unsubLogs = null;
         }
 
-        // Logs monitoring is disabled for performance (making the system extremely light)
-        setLogs([]);
+        // Monitor Firestore "logs" collection in real-time
+        const qLogs = query(collection(db, "logs"), where("userId", "==", uid));
+        unsubLogs = onSnapshot(qLogs, (snap) => {
+          const loadedLogs: LogEntry[] = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              action: data.action || `Exibição: ${data.mediaName}`,
+              time: data.timestamp ? new Date(data.timestamp).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR'),
+              player: data.player || 'Player 1',
+              mediaName: data.mediaName || '',
+              timestamp: data.timestamp || Date.now()
+            };
+          }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          setLogs(loadedLogs);
+        }, (err) => {
+          console.warn("Logs monitor notice:", err);
+        });
 
         // Monitor Firestore "playlist" collection directly (HTML structure compatibility)
         const qPlaylist = query(collection(db, "playlist"), where("userId", "==", uid));
@@ -522,12 +501,17 @@ export default function App() {
                 batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
               });
               
+              INITIAL_LOGS.forEach((log) => {
+                const docRef = doc(db, 'users', uid, 'logs', log.id);
+                batch.set(docRef, cleanUndefined({ ...log, userId: uid }));
+              });
+              
               await batch.commit();
               
               setMediaItems(INITIAL_MEDIA_ITEMS);
               setPlayers(INITIAL_PLAYERS);
               setPlaylists(INITIAL_PLAYLISTS);
-              setLogs([]);
+              setLogs(INITIAL_LOGS);
             } else {
               const items: MediaItem[] = [];
               mediaSnap.forEach(doc => items.push({ id: doc.id, ...doc.data() } as MediaItem));
@@ -546,7 +530,10 @@ export default function App() {
               playlistsSnap.forEach(doc => loadedPlaylists.push({ id: doc.id, ...doc.data() } as Playlist));
               setPlaylists(loadedPlaylists);
 
-              setLogs([]);
+              const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
+              const loadedLogs: LogEntry[] = [];
+              logsSnap.forEach(doc => loadedLogs.push({ id: doc.id, ...doc.data() } as LogEntry));
+              setLogs(loadedLogs);
             }
             setSyncStatus('success');
             setLastSyncTime(new Date().toLocaleTimeString());
@@ -569,15 +556,10 @@ export default function App() {
           unsubLogs();
           unsubLogs = null;
         }
-        if (unsubUsers) {
-          unsubUsers();
-          unsubUsers = null;
-        }
         setMediaItems([]);
         setPlayers([]);
         setPlaylists([]);
         setLogs([]);
-        setRegisteredUsers([]);
         setFirestorePlaylist([]);
         setLoadingData(false);
       }
@@ -588,7 +570,6 @@ export default function App() {
       unsubscribe();
       if (unsubSnap) unsubSnap();
       if (unsubLogs) unsubLogs();
-      if (unsubUsers) unsubUsers();
     };
   }, []);
 
@@ -630,66 +611,6 @@ export default function App() {
     }
   };
 
-  const handleAssignUser = async (playerId: string, userEmail: string) => {
-    const targetPlayer = players.find(p => p.id === playerId);
-    if (!targetPlayer) return;
-
-    const nextPlayers = players.map(p => {
-      if (p.id === playerId) {
-        return {
-          ...p,
-          assignedUserEmail: userEmail || undefined,
-          assignedUserId: registeredUsers.find(u => u.email === userEmail)?.uid || undefined
-        };
-      }
-      return p;
-    });
-
-    await handleSetPlayers(nextPlayers);
-
-    showToast(userEmail ? `Operador ${userEmail} vinculado à tela!` : "Operador desvinculado.");
-  };
-
-  const handlePlayerAction = async (playerId: string, action: 'reboot' | 'sync') => {
-    const targetPlayer = players.find(p => p.id === playerId);
-    if (!targetPlayer) return;
-
-    if (action === 'sync') {
-      showToast(`Sincronização forçada com sucesso para '${targetPlayer.name}'.`);
-    } else if (action === 'reboot') {
-      showToast(`Reiniciando tela '${targetPlayer.name}'...`);
-
-      // 2. Set status to offline temporarily to simulate hardware rebooting
-      const originalStatus = targetPlayer.status;
-      const offlinePlayers = players.map(p => {
-        if (p.id === playerId) {
-          return { ...p, status: 'offline' as const, cpu: 0, bandwidth: 0 };
-        }
-        return p;
-      });
-      await handleSetPlayers(offlinePlayers);
-
-      // 3. After 3 seconds, turn it back online with refreshed uptime/cpu
-      setTimeout(async () => {
-        const backOnlinePlayers = players.map(p => {
-          if (p.id === playerId) {
-            return { 
-              ...p, 
-              status: 'online' as const, 
-              cpu: 18, 
-              bandwidth: 8.5,
-              lastSync: new Date().toLocaleTimeString('pt-BR') 
-            };
-          }
-          return p;
-        });
-        await handleSetPlayers(backOnlinePlayers);
-
-        showToast(`Tela '${targetPlayer.name}' está online e funcional!`);
-      }, 3000);
-    }
-  };
-
   const handleSetPlaylists = async (update: Playlist[] | ((prev: Playlist[]) => Playlist[])) => {
     const nextPlaylists = typeof update === 'function' ? update(playlists) : update;
     setPlaylists(nextPlaylists);
@@ -703,48 +624,6 @@ export default function App() {
       await batch.commit();
     } catch (error) {
       console.warn("Syncing playlists notice:", error);
-    }
-  };
-
-  const handleDeletePlaylist = async (playlistId: string) => {
-    const target = playlists.find(p => p.id === playlistId);
-    if (target?.isActive) {
-      showToast("Não é possível excluir uma playlist ativa!");
-      return;
-    }
-
-    if (window.confirm(`Tem certeza que deseja excluir a playlist "${target?.name || ''}"?`)) {
-      const updatedPlaylists = playlists.filter(p => p.id !== playlistId);
-      setPlaylists(updatedPlaylists);
-
-      if (auth.currentUser) {
-        const uid = auth.currentUser.uid;
-        try {
-          setSyncStatus('syncing');
-          await deleteDoc(doc(db, 'users', uid, 'playlists', playlistId));
-          setSyncStatus('success');
-          setLastSyncTime(new Date().toLocaleTimeString());
-        } catch (error) {
-          console.warn("Error deleting playlist from Firestore:", error);
-          setSyncStatus('error');
-        }
-      }
-
-      showToast(`Playlist "${target?.name || ''}" excluída com sucesso.`);
-    }
-  };
-
-  const handleSelectPlaylist = async (playlistId: string) => {
-    const updated = playlists.map(p => ({
-      ...p,
-      isActive: p.id === playlistId
-    }));
-    await handleSetPlaylists(updated);
-    
-    const selectedPlaylist = playlists.find(p => p.id === playlistId);
-    if (selectedPlaylist) {
-      setActivePlaylistNames({ [selectedPlaylist.name]: true });
-      showToast(`Playlist "${selectedPlaylist.name}" ativada para transmissão!`);
     }
   };
 
@@ -808,8 +687,6 @@ export default function App() {
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       userId: currentUid,
-      playlistName: propPlaylistName || 'Geral',
-      paused: propPaused,
       updatedAt: new Date().toISOString(),
       ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
@@ -1045,16 +922,26 @@ export default function App() {
     setReportResults(null);
 
     try {
-      // Simulate/Generate deterministic statistics based on current active/base playlist items
+      const sDate = new Date(repStart + "T00:00:00").getTime();
+      const eDate = new Date(repEnd + "T23:59:59").getTime();
+
+      const q = query(
+        collection(db, "logs"),
+        where("userId", "==", user?.uid || ""),
+        where("timestamp", ">=", sDate),
+        where("timestamp", "<=", eDate)
+      );
+
+      const snap = await getDocs(q);
       const stats: Record<string, number> = {};
-      basePlaylist.forEach((item, index) => {
-        // Deterministic view count based on string name length
-        const baseCount = (item.name.length * 12) + (index * 7) + 25;
-        stats[item.name] = baseCount;
+
+      snap.forEach(d => {
+        const n = d.data().mediaName || d.data().action;
+        if (n) {
+          stats[n] = (stats[n] || 0) + 1;
+        }
       });
 
-      // Add a slight delay for satisfying UX loader
-      await new Promise(resolve => setTimeout(resolve, 400));
       setReportResults(stats);
     } catch (err) {
       console.error(err);
@@ -1169,6 +1056,16 @@ export default function App() {
       }
 
       currentIndexRef.current = targetIdx;
+
+      try {
+        addDoc(collection(db, "logs"), {
+          mediaName: item.name,
+          timestamp: Date.now(),
+          userId: user?.uid || ''
+        });
+      } catch (err) {
+        console.warn("Log write notice", err);
+      }
 
       setCurrentMedia(item);
       setPlayIdx(targetIdx);
@@ -1900,18 +1797,9 @@ export default function App() {
           <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
             <PlayersView 
               players={players} 
-              mediaItems={basePlaylist}
-              registeredUsers={registeredUsers}
-              onPlayerAction={handlePlayerAction}
-              onAssignUser={handleAssignUser}
-              onOpenSimulator={(p) => {
-                // If there's an active playlist, start the simulated player
-                if (activePlaylist.length > 0) {
-                  startPlayer();
-                } else {
-                  showToast("Nenhuma playlist ativa no momento para simulação.");
-                }
-              }}
+              mediaItems={mediaItems}
+              onPlayerAction={(id, action) => showToast(`Ação ${action} executada.`)}
+              onOpenSimulator={() => startPlayer()}
             />
           </div>
         </div>
@@ -1926,10 +1814,9 @@ export default function App() {
           <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
             <PlaylistsView 
               playlists={playlists}
-              mediaItems={basePlaylist}
-              onSelectPlaylist={handleSelectPlaylist}
+              mediaItems={mediaItems}
+              onSelectPlaylist={(id) => showToast(`Playlist selecionada: ${id}`)}
               onCreatePlaylist={(name) => handleSetPlaylists([...playlists, { id: `pl-${Date.now()}`, name, itemIds: [], isActive: false }])}
-              onDeletePlaylist={handleDeletePlaylist}
             />
           </div>
         </div>
@@ -1954,12 +1841,7 @@ export default function App() {
             ⬅ Menu Principal
           </button>
           <div style={{ background: 'white', padding: '25px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <AnalyticsView 
-              logs={logs} 
-              players={players} 
-              mediaItems={basePlaylist} 
-              playlists={playlists}
-            />
+            <AnalyticsView logs={logs} />
           </div>
         </div>
       )}
@@ -1974,8 +1856,7 @@ export default function App() {
             <DashboardView 
               players={players} 
               logs={logs} 
-              mediaItems={basePlaylist} 
-              playlists={playlists}
+              mediaItems={mediaItems} 
               setActiveTab={(tab) => setScreen(tab)}
               onDeployAll={() => {
                 setSyncStatus('syncing');

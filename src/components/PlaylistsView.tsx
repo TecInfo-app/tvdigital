@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ListMusic, Plus, Play, CheckCircle, FilePlus, ChevronRight, Trash2 } from 'lucide-react';
+import { ListMusic, Plus, Play, CheckCircle, FilePlus, ChevronRight } from 'lucide-react';
 import React, { useState } from 'react';
 import { Playlist, MediaItem } from '../types';
 
@@ -12,15 +12,13 @@ interface PlaylistsViewProps {
   mediaItems: MediaItem[];
   onSelectPlaylist: (playlistId: string) => void;
   onCreatePlaylist: (name: string) => void;
-  onDeletePlaylist: (playlistId: string) => void;
 }
 
 export default function PlaylistsView({
   playlists,
   mediaItems,
   onSelectPlaylist,
-  onCreatePlaylist,
-  onDeletePlaylist
+  onCreatePlaylist
 }: PlaylistsViewProps) {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -112,38 +110,24 @@ export default function PlaylistsView({
                 </div>
               </div>
 
-              <div className="mt-6 flex items-center justify-between pt-4 border-t border-gray-200">
+              <div className="mt-6 flex items-center justify-between pt-4 border-t border-gray-200 20">
                 <span className="text-[10px] text-brand-outline font-mono-data font-semibold">
                   ID: {playlist.id.toUpperCase()}
                 </span>
 
-                <div className="flex items-center gap-2">
-                  {!playlist.isActive && (
-                    <button
-                      type="button"
-                      onClick={() => onDeletePlaylist(playlist.id)}
-                      className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-800 rounded-xl font-bold text-xs flex items-center gap-1 cursor-pointer transition-all border border-red-100/50 hover:border-red-200 active:scale-95"
-                      title="Excluir Playlist"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Excluir</span>
-                    </button>
-                  )}
-
-                  {!playlist.isActive ? (
-                    <button
-                      onClick={() => onSelectPlaylist(playlist.id)}
-                      className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 rounded-xl font-bold text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>Ativar</span>
-                    </button>
-                  ) : (
-                    <span className="text-[10px] text-pink-600 font-bold font-geist tracking-wider">
-                      TRANSMITINDO AO VIVO
-                    </span>
-                  )}
-                </div>
+                {!playlist.isActive ? (
+                  <button
+                    onClick={() => onSelectPlaylist(playlist.id)}
+                    className="px-3.5 py-1.5 bg-brand-surface-variant/40 hover:bg-blue-50 text-gray-900 hover:text-blue-600 rounded-lg font-bold text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                  >
+                    <Play className="w-3 h-3 fill-current" />
+                    <span>Ativar</span>
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-pink-600 font-bold font-geist tracking-wider">
+                    TRANSMITINDO AO VIVO
+                  </span>
+                )}
               </div>
             </div>
           );

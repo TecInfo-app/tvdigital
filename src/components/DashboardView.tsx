@@ -4,32 +4,13 @@
  */
 
 import { useState } from 'react';
-import { 
-  CheckCircle, 
-  History, 
-  PlayCircle, 
-  Network, 
-  Users, 
-  AlertTriangle, 
-  Trash2, 
-  Search, 
-  Image as ImageIcon, 
-  Video as VideoIcon, 
-  Radio, 
-  Layers, 
-  Clock, 
-  Calendar, 
-  ExternalLink,
-  Sliders,
-  Laptop
-} from 'lucide-react';
-import { Player, LogEntry, MediaItem, Playlist } from '../types';
+import { CheckCircle, History, PlayCircle, Network, Users, AlertTriangle, Trash2, Search } from 'lucide-react';
+import { Player, LogEntry, MediaItem } from '../types';
 
 interface DashboardViewProps {
   players: Player[];
   logs: LogEntry[];
   mediaItems: MediaItem[];
-  playlists?: Playlist[];
   setActiveTab: (tab: string) => void;
   onDeployAll: () => void;
   syncStatus?: 'success' | 'error' | 'syncing' | 'idle';
@@ -41,7 +22,6 @@ export default function DashboardView({
   players,
   logs,
   mediaItems,
-  playlists = [],
   setActiveTab,
   onDeployAll,
   syncStatus = 'idle',
@@ -53,57 +33,12 @@ export default function DashboardView({
   const warningPlayersCount = players.filter(p => p.status === 'warning').length;
   const totalPlayersCount = players.length;
 
-  // Rich mathematical stats extraction from basePlaylist (mediaItems)
-  const mediaCount = mediaItems.length;
-  const activeMedia = mediaItems.filter(m => !m.paused).length;
-  const pausedMedia = mediaItems.filter(m => m.paused).length;
-
-  // Category splits
-  const images = mediaItems.filter(m => {
-    const t = (m.type || '').toLowerCase();
-    return t.includes('image') || t.includes('img');
-  });
-  const videos = mediaItems.filter(m => {
-    const t = (m.type || '').toLowerCase();
-    return t.includes('video');
-  });
-  const rssFeeds = mediaItems.filter(m => {
-    const t = (m.type || '').toLowerCase();
-    return t === 'rss';
-  });
-  const webWidgets = mediaItems.filter(m => {
-    const t = (m.type || '').toLowerCase();
-    return !t.includes('image') && !t.includes('img') && !t.includes('video') && t !== 'rss';
-  });
-
-  // Extract unique playlists from mediaItems as well as explicit playlists
-  const playlistGroups: { [key: string]: MediaItem[] } = {};
-  mediaItems.forEach(item => {
-    const pName = item.playlistName || 'Geral';
-    if (!playlistGroups[pName]) playlistGroups[pName] = [];
-    playlistGroups[pName].push(item);
-  });
-
-  // Ensure all configured playlists are represented in grouping
-  playlists.forEach(pl => {
-    if (!playlistGroups[pl.name]) {
-      playlistGroups[pl.name] = [];
-    }
-  });
-
-  const playlistNames = Object.keys(playlistGroups);
-
-  // Agenda/Scheduling stats
-  const scheduledItems = mediaItems.filter(m => m.start || m.end || (m.days && m.days.length < 7));
-  const alwaysOnItems = mediaItems.filter(m => !(m.start || m.end || (m.days && m.days.length < 7)));
-
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* Welcome & Stats Bento Grid */}
       <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {/* Welcome Card */}
-        <div className="col-span-1 md:col-span-2 lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col justify-between min-h-[220px] border border-gray-200 shadow-xl shadow-brand-surface-lowest/40">
+        <div className="col-span-1 md:col-span-2 lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col justify-between min-h-[210px] border border-gray-200 40 shadow-xl shadow-brand-surface-lowest/40">
           <div>
             <div className="flex justify-between items-start mb-2">
               <h2 className="font-geist text-2xl font-bold text-gray-900">Bem-vindo de volta, Admin</h2>
@@ -129,37 +64,23 @@ export default function DashboardView({
               Sua rede de sinalização digital está <strong className="text-pink-600">98% operacional</strong> em todos os displays ativos em regiões metropolitanas.
             </p>
           </div>
-          
-          {/* Enhanced statistics dashboard metrics row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <p className="text-gray-500 text-[9px] uppercase tracking-wider font-bold font-geist">Mídias Totais</p>
-              <p className="text-lg font-bold font-geist text-gray-900 mt-0.5">{mediaCount}</p>
-              <p className="text-[10px] text-green-600 font-medium font-inter">{activeMedia} ativas</p>
+          <div className="flex gap-4 mt-6">
+            <div className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+              <p className="text-gray-500 text-[11px] uppercase tracking-wider font-bold font-geist">Mídia Total</p>
+              <p className="text-xl font-bold font-geist text-gray-900 mt-1">{mediaItems.length} Itens</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <p className="text-gray-500 text-[9px] uppercase tracking-wider font-bold font-geist">Playlists</p>
-              <p className="text-lg font-bold font-geist text-gray-900 mt-0.5">{playlistNames.length}</p>
-              <p className="text-[10px] text-gray-500 font-inter">Carregadas</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <p className="text-gray-500 text-[9px] uppercase tracking-wider font-bold font-geist">Telas Ativas</p>
-              <p className="text-lg font-bold font-geist text-pink-600 mt-0.5">{activePlayersCount}/{totalPlayersCount}</p>
-              <p className="text-[10px] text-gray-500 font-inter">Displays online</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-              <p className="text-gray-500 text-[9px] uppercase tracking-wider font-bold font-geist">Agendados</p>
-              <p className="text-lg font-bold font-geist text-gray-900 mt-0.5">{scheduledItems.length}</p>
-              <p className="text-[10px] text-pink-600 font-medium font-inter">{alwaysOnItems.length} contínuos</p>
+            <div className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+              <p className="text-gray-500 text-[11px] uppercase tracking-wider font-bold font-geist">Stream Ativo</p>
+              <p className="text-xl font-bold font-geist text-pink-600 mt-1">Transmissão Ao Vivo</p>
             </div>
           </div>
         </div>
 
         {/* TV Status Card */}
-        <div className="glass-card p-6 rounded-2xl flex flex-col justify-between border border-gray-200 shadow-xl shadow-brand-surface-lowest/40">
+        <div className="glass-card p-6 rounded-2xl flex flex-col justify-between border border-gray-200 40 shadow-xl shadow-brand-surface-lowest/40">
           <div className="flex justify-between items-start">
             <span className="p-2.5 bg-brand-secondary-container/20 text-pink-600 rounded-xl">
-              <Laptop className="w-5 h-5" />
+              <CheckCircle className="w-5 h-5" />
             </span>
             <span className="text-pink-600 flex items-center gap-1.5 text-xs font-bold font-geist">
               <span className="w-2 h-2 bg-brand-secondary rounded-full status-pulse"></span>
@@ -176,7 +97,7 @@ export default function DashboardView({
         </div>
 
         {/* Recent Logs Card */}
-        <div className="glass-card p-6 rounded-2xl flex flex-col justify-between border border-gray-200 shadow-xl shadow-brand-surface-lowest/40">
+        <div className="glass-card p-6 rounded-2xl flex flex-col justify-between border border-gray-200 40 shadow-xl shadow-brand-surface-lowest/40">
           <div className="flex justify-between items-start">
             <span className="p-2.5 bg-brand-tertiary/20 text-brand-tertiary rounded-xl">
               <History className="w-5 h-5" />
@@ -191,180 +112,12 @@ export default function DashboardView({
           <div>
             <p className="text-brand-outline text-[11px] uppercase tracking-wider font-bold font-geist">Logs Recentes</p>
             <div className="mt-3 space-y-2.5">
-              {logs.slice(0, 3).map((log) => (
+              {logs.slice(0, 2).map((log) => (
                 <div key={log.id} className="flex justify-between items-start gap-2 text-xs">
                   <span className="text-gray-900-variant line-clamp-1 leading-snug">{log.action}</span>
                   <span className="text-brand-outline shrink-0 font-geist text-[10px]">{log.time}</span>
                 </div>
               ))}
-              {logs.length === 0 && (
-                <p className="text-xs text-gray-400">Nenhum evento registrado ainda.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* NEW SECTION: Complete Content, Playlists & Schedules Summary */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Playlists Breakdown Widget */}
-        <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-gray-200 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-3">
-                <Layers className="w-5 h-5 text-pink-600" />
-                <h3 className="font-geist text-lg font-bold text-gray-900">Listas & Playlists Ativas</h3>
-              </div>
-              <button 
-                onClick={() => setActiveTab('playlists')}
-                className="text-xs font-bold text-pink-600 hover:underline flex items-center gap-1"
-              >
-                Gerenciar Playlists <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-4 font-inter leading-relaxed">
-              Resumo de todas as listas criadas e a quantidade de arquivos de mídia configurados em cada playlist.
-            </p>
-
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-              {playlistNames.map(pName => {
-                const itemsInGroup = playlistGroups[pName] || [];
-                const activeInGroup = itemsInGroup.filter(i => !i.paused).length;
-                const progressPct = itemsInGroup.length > 0 ? (activeInGroup / itemsInGroup.length) * 100 : 0;
-                
-                return (
-                  <div key={pName} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2 hover:bg-gray-100/70 transition-all">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="text-xs font-black px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full font-geist">
-                          {pName}
-                        </span>
-                        <span className="text-xs font-bold text-gray-500 ml-2 font-inter">
-                          {itemsInGroup.length} mídias
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-gray-700 font-mono-data">
-                        {activeInGroup} ativas ({Math.round(progressPct)}%)
-                      </span>
-                    </div>
-
-                    {/* Simple sleek progress bar for playlist health */}
-                    <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-pink-600 h-full rounded-full transition-all" 
-                        style={{ width: `${Math.max(progressPct, 4)}%` }}
-                      />
-                    </div>
-
-                    {/* Render thumbnail/names of media inside this playlist */}
-                    {itemsInGroup.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {itemsInGroup.slice(0, 5).map(item => (
-                          <span 
-                            key={item.id} 
-                            className={`text-[10px] px-2 py-1 rounded border font-medium ${
-                              item.paused 
-                                ? 'bg-gray-100 text-gray-400 border-gray-200 line-through' 
-                                : 'bg-white text-gray-700 border-gray-200'
-                            }`}
-                          >
-                            {item.name}
-                          </span>
-                        ))}
-                        {itemsInGroup.length > 5 && (
-                          <span className="text-[10px] text-gray-400 font-bold self-center">
-                            +{itemsInGroup.length - 5} mais
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-[10.5px] text-gray-400 italic font-inter">Nenhuma mídia nesta playlist ainda.</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Media Types distribution breakdown widget */}
-        <div className="glass-card p-6 rounded-2xl border border-gray-200 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <Sliders className="w-5 h-5 text-blue-600" />
-              <h3 className="font-geist text-lg font-bold text-gray-900">Formatos & Extensões</h3>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-4 font-inter leading-relaxed">
-              Distribuição por formato de arquivo de sinalização digital sendo reproduzidos no sistema:
-            </p>
-
-            <div className="space-y-3.5">
-              {/* Images indicator */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 bg-green-50 text-green-600 rounded-lg">
-                    <ImageIcon className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold text-gray-900 font-geist">Imagens Estáticas</p>
-                    <p className="text-[10px] text-gray-500 font-inter">Formatos PNG, JPG, JPEG ou Base64</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-mono-data">
-                  {images.length}
-                </span>
-              </div>
-
-              {/* Videos indicator */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                    <VideoIcon className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold text-gray-900 font-geist">Vídeos & Motion</p>
-                    <p className="text-[10px] text-gray-500 font-inter">MP4, Streams de vídeo e YouTube</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold font-mono-data">
-                  {videos.length}
-                </span>
-              </div>
-
-              {/* RSS indicator */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
-                    <Radio className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold text-gray-900 font-geist">Feeds de Notícias (RSS)</p>
-                    <p className="text-[10px] text-gray-500 font-inter">Notícias dinâmicas em tempo real</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold font-mono-data">
-                  {rssFeeds.length}
-                </span>
-              </div>
-
-              {/* Web pages and widgets indicator */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
-                    <Network className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold text-gray-900 font-geist">Websites & Widgets</p>
-                    <p className="text-[10px] text-gray-500 font-inter">Páginas web, meteorologia e embeds</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold font-mono-data">
-                  {webWidgets.length}
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -373,7 +126,7 @@ export default function DashboardView({
       {/* Network Overview Map Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Sync Panel */}
-        <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-gray-200 flex flex-col justify-between">
+        <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-gray-200 40 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-3 mb-3">
               <Network className="w-5 h-5 text-blue-600" />
@@ -423,35 +176,28 @@ export default function DashboardView({
         </div>
 
         {/* Warning Logs & Quick Troubleshooting info */}
-        <div className="glass-card p-6 rounded-2xl border border-gray-200 flex flex-col justify-between">
+        <div className="glass-card p-6 rounded-2xl border border-gray-200 40 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="text-brand-tertiary w-5 h-5" />
               <h3 className="font-geist text-lg font-bold text-gray-900">Necessitam Sincronização</h3>
             </div>
-            <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1">
+            <div className="space-y-3.5">
                {players.filter(p => p.status !== 'online').map(player => (
-                 <div key={player.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                   <div>
-                     <p className="text-xs font-bold text-gray-900 font-geist">{player.name}</p>
-                     <p className="text-[10px] text-gray-500 mt-0.5 font-mono-data">{player.ip} • Último Sync: {player.lastSync}</p>
-                   </div>
-                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-geist tracking-wider shrink-0 ${
-                     player.status === 'warning' 
-                       ? 'bg-amber-500/20 text-amber-300' 
-                       : 'bg-gray-50 text-gray-500'
-                   }`}>
-                     {player.status === 'warning' ? 'ATENÇÃO' : player.status.toUpperCase()}
-                   </span>
-                 </div>
-              ))}
-              {players.filter(p => p.status !== 'online').length === 0 && (
-                <div className="text-center p-6 bg-green-50 border border-green-100 rounded-xl">
-                  <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-xs text-green-800 font-bold">Tudo em ordem!</p>
-                  <p className="text-[10px] text-green-600 mt-0.5">Todas as telas ativas estão 100% sincronizadas.</p>
+                <div key={player.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <div>
+                    <p className="text-xs font-bold text-gray-900 font-geist">{player.name}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5 font-mono-data">{player.ip} • Último Sync: {player.lastSync}</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-geist tracking-wider shrink-0 ${
+                    player.status === 'warning' 
+                      ? 'bg-amber-500/20 text-amber-300' 
+                      : 'bg-gray-50 text-gray-500'
+                  }`}>
+                    {player.status === 'warning' ? 'ATENÇÃO' : player.status.toUpperCase()}
+                  </span>
                 </div>
-              )}
+              ))}
             </div>
           </div>
 
@@ -462,51 +208,6 @@ export default function DashboardView({
           </div>
         </div>
       </section>
-
-      {/* NEW SECTION: Scheduled agenda list for quick view on dashboard */}
-      {scheduledItems.length > 0 && (
-        <section className="glass-card p-6 rounded-2xl border border-gray-200">
-          <div className="flex items-center gap-3 mb-4">
-            <Calendar className="w-5 h-5 text-pink-600" />
-            <h3 className="font-geist text-lg font-bold text-gray-900">Agenda de Mídias Programadas</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {scheduledItems.map(item => (
-              <div key={item.id} className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-                <div className="flex justify-between items-start">
-                  <p className="text-sm font-bold text-gray-900 font-geist line-clamp-1">{item.name}</p>
-                  <span className="text-[9px] font-black px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full uppercase">
-                    {item.type}
-                  </span>
-                </div>
-                <div className="space-y-1 text-xs text-gray-500 font-inter">
-                  {item.start && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span>Início: <strong>{item.start}</strong></span>
-                    </div>
-                  )}
-                  {item.end && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span>Fim: <strong>{item.end}</strong></span>
-                    </div>
-                  )}
-                  {item.days && item.days.length > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span>Dias: {item.days.map(d => ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][d]).join(', ')}</span>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-pink-600 font-bold mt-1 uppercase tracking-wider font-geist">
-                    Playlist: {item.playlistName || 'Geral'}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Scanner Modal */}
       {isScannerOpen && (
@@ -543,7 +244,7 @@ export default function DashboardView({
                     <div key={item.id} className={`p-4 rounded-xl border flex items-center justify-between ${item.isLarge ? 'bg-red-50/50 border-red-200' : 'bg-white border-gray-200'}`}>
                       <div className="flex items-center gap-4">
                         {item.type === 'image' && item.url?.startsWith('data:image') ? (
-                          <img src={item.url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200" referrerPolicy="no-referrer" />
+                          <img src={item.url} alt="" className="w-12 h-12 rounded object-cover border border-gray-200" />
                         ) : (
                           <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center border border-gray-200 text-xs font-bold text-gray-400">{item.type}</div>
                         )}
