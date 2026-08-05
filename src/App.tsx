@@ -1051,7 +1051,7 @@ export default function App() {
       const diaErrado = item.days && item.days.length > 0 && !item.days.includes(agora.getDay());
 
       if (foraHorario || diaErrado) {
-        setPlayIdx(targetIdx + 1);
+        setPlayIdx((targetIdx + 1) % activePlaylist.length);
         return;
       }
 
@@ -1077,7 +1077,7 @@ export default function App() {
       if (!isVideo) {
         playerTimerRef.current = setTimeout(() => {
           if (isMounted) {
-            setPlayIdx(prev => prev + 1);
+            setPlayIdx(prev => (prev + 1) % activePlaylist.length);
           }
         }, durationMs);
       }
@@ -1092,7 +1092,7 @@ export default function App() {
 
   const handleVideoEnded = () => {
     if (screen === 'player') {
-      setPlayIdx(prev => prev + 1);
+      setPlayIdx(prev => (prev + 1) % activePlaylist.length);
     }
   };
 
