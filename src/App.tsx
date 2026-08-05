@@ -335,6 +335,9 @@ export default function App() {
 
   const playerTimerRef = useRef<any>(null);
   const currentIndexRef = useRef<number | null>(null);
+  const mediaStartTimestampRef = useRef<number>(0);
+  const mediaDurationMsRef = useRef<number>(0);
+  const currentMediaIdRef = useRef<string | null>(null);
 
   // Settings states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1025,38 +1028,65 @@ export default function App() {
     if (screen !== 'player' || activePlaylist.length === 0) {
       if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
       currentIndexRef.current = null;
+      currentMediaIdRef.current = null;
+      mediaStartTimestampRef.current = 0;
+      mediaDurationMsRef.current = 0;
       return;
     }
 
-    // Guard to prevent re-running loop setup if we are already playing/have scheduled this index
-    if (currentIndexRef.current === playIdx) {
-      return;
-    }
-
-    let isMounted = true;
-
-    const loop = (currentIndex: number) => {
-      if (!isMounted) return;
-      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
-
-      let targetIdx = currentIndex;
-      if (targetIdx >= activePlaylist.length) {
-        targetIdx = 0;
-      }
-
-      const item = activePlaylist[targetIdx];
+    // Function to find the next valid media index starting from startIndex
+    const findNextValidIndex = (startIndex: number): number => {
       const agora = new Date();
-
-      const foraHorario = (item.start && agora < new Date(item.start)) || (item.end && agora > new Date(item.end));
-      const diaErrado = item.days && item.days.length > 0 && !item.days.includes(agora.getDay());
-
-      if (foraHorario || diaErrado) {
-        setPlayIdx((targetIdx + 1) % activePlaylist.length);
-        return;
+      for (let i = 0; i < activePlaylist.length; i++) {
+        const idx = (startIndex + i) % activePlaylist.length;
+        const item = activePlaylist[idx];
+        const foraHorario = (item.start && agora < new Date(item.start)) || (item.end && agora > new Date(item.end));
+        const diaErrado = item.days && item.days.length > 0 && !item.days.includes(agora.getDay());
+        if (!foraHorario && !diaErrado) {
+          return idx;
+        }
       }
+      return -1;
+    };
 
-      currentIndexRef.current = targetIdx;
+    const validIdx = findNextValidIndex(playIdx);
 
+    if (validIdx === -1) {
+      // No media is scheduled/available to play
+      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
+      currentIndexRef.current = null;
+      currentMediaIdRef.current = null;
+      setCurrentMedia(null);
+      return;
+    }
+
+    // If the valid index is different from playIdx, transition to it
+    if (validIdx !== playIdx) {
+      setPlayIdx(validIdx);
+      return;
+    }
+
+    const item = activePlaylist[validIdx];
+    const isVideo = item.type?.includes('video');
+    const isWidget = item.type === 'widget';
+    const durationMs = (item.duration || (isWidget ? 40 : 10)) * 1000;
+
+    // Check if we are already playing this exact item to prevent resetting its timer
+    const isSameMedia = currentIndexRef.current === validIdx && currentMediaIdRef.current === item.id;
+
+    let remainingDurationMs = durationMs;
+
+    if (isSameMedia) {
+      const elapsed = Date.now() - mediaStartTimestampRef.current;
+      remainingDurationMs = Math.max(0, durationMs - elapsed);
+    } else {
+      // Initialize tracking for the new media item
+      mediaStartTimestampRef.current = Date.now();
+      mediaDurationMsRef.current = durationMs;
+      currentIndexRef.current = validIdx;
+      currentMediaIdRef.current = item.id;
+
+      // Log media play to Firestore logs
       try {
         addDoc(collection(db, "logs"), {
           mediaName: item.name,
@@ -1068,25 +1098,23 @@ export default function App() {
       }
 
       setCurrentMedia(item);
-      setPlayIdx(targetIdx);
+    }
 
-      const isVideo = item.type?.includes('video');
-      const isWidget = item.type === 'widget';
-      const durationMs = (item.duration || (isWidget ? 40 : 10)) * 1000;
+    // Setup the timeout for transition if it's not a video
+    if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
 
-      if (!isVideo) {
-        playerTimerRef.current = setTimeout(() => {
-          if (isMounted) {
-            setPlayIdx(prev => (prev + 1) % activePlaylist.length);
-          }
-        }, durationMs);
-      }
-    };
-
-    loop(playIdx);
+    let isMounted = true;
+    if (!isVideo) {
+      playerTimerRef.current = setTimeout(() => {
+        if (isMounted) {
+          setPlayIdx(prev => (prev + 1) % activePlaylist.length);
+        }
+      }, remainingDurationMs);
+    }
 
     return () => {
       isMounted = false;
+      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
     };
   }, [screen, activePlaylist, playIdx]);
 
