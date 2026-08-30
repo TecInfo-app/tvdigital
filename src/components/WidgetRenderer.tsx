@@ -72,6 +72,14 @@ function cleanText(rawHtml: string): string {
 }
 
 export default function WidgetRenderer({ url, name, className = "", items: itemsProp, defaultDuration }: WidgetRendererProps) {
+  const [items, setItems] = useState<RSSItem[]>([]);
+  const [feedTitle, setFeedTitle] = useState(name);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fallbackDuration = defaultDuration ? defaultDuration * 1000 : 7000;
+
   const isDirectMedia = /\.(jpg|jpeg|png|webp|gif|mp4|webm|mov)(\?.*)?$/i.test(url);
   const isRss = !isDirectMedia && (
     url.toLowerCase().includes('rss') || 
@@ -83,14 +91,6 @@ export default function WidgetRenderer({ url, name, className = "", items: items
     url.startsWith('http://') ||
     url.startsWith('https://')
   );
-
-  const [items, setItems] = useState<RSSItem[]>([]);
-  const [feedTitle, setFeedTitle] = useState(name);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(isRss);
-  const [error, setError] = useState<string | null>(null);
-
-  const fallbackDuration = defaultDuration ? defaultDuration * 1000 : 7000;
 
   useEffect(() => {
     if (!isRss) return;
@@ -121,18 +121,8 @@ export default function WidgetRenderer({ url, name, className = "", items: items
       apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`;
     }
 
-    let fetchOptions: RequestInit = {};
-    let timeoutId: any;
-    
-    if (typeof AbortController !== 'undefined') {
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), 5000);
-      fetchOptions = { signal: controller.signal };
-    }
-
-    fetch(apiUrl, fetchOptions)
+    fetch(apiUrl)
       .then((res) => {
-        if (timeoutId) clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Não foi possível carregar a transmissão do feed.');
         return res.json();
       })
