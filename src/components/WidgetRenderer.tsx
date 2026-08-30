@@ -121,12 +121,18 @@ export default function WidgetRenderer({ url, name, className = "", items: items
       apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    let fetchOptions: RequestInit = {};
+    let timeoutId: any;
+    
+    if (typeof AbortController !== 'undefined') {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 5000);
+      fetchOptions = { signal: controller.signal };
+    }
 
-    fetch(apiUrl, { signal: controller.signal })
+    fetch(apiUrl, fetchOptions)
       .then((res) => {
-        clearTimeout(timeoutId);
+        if (timeoutId) clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Não foi possível carregar a transmissão do feed.');
         return res.json();
       })
