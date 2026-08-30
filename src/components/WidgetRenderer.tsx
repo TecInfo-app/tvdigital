@@ -75,7 +75,7 @@ export default function WidgetRenderer({ url, name, className = "", items: items
   const [items, setItems] = useState<RSSItem[]>([]);
   const [feedTitle, setFeedTitle] = useState(name);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(isRss);
   const [error, setError] = useState<string | null>(null);
 
   const fallbackDuration = defaultDuration ? defaultDuration * 1000 : 7000;
@@ -121,8 +121,12 @@ export default function WidgetRenderer({ url, name, className = "", items: items
       apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`;
     }
 
-    fetch(apiUrl)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    fetch(apiUrl, { signal: controller.signal })
       .then((res) => {
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error('Não foi possível carregar a transmissão do feed.');
         return res.json();
       })
