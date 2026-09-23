@@ -7,6 +7,7 @@ import { X, Wifi, Clock, Play, Pause, ChevronLeft, ChevronRight, Minimize2 } fro
 import { useState, useEffect } from 'react';
 import { MediaItem } from '../types';
 import WidgetRenderer from './WidgetRenderer';
+import { sanitizeMediaUrl } from '../utils/mediaUtils';
 
 interface LivePlayerModalProps {
   isOpen: boolean;
@@ -103,7 +104,7 @@ export default function LivePlayerModal({
           currentItem.type === 'video' ? (
             <video 
               key={currentItem.id}
-              src={currentItem.url}
+              src={sanitizeMediaUrl(currentItem.url)}
               className="w-full h-full object-cover"
               autoPlay
               muted
@@ -121,6 +122,13 @@ export default function LivePlayerModal({
               onEnded={() => {
                 if (isPlaying) {
                   setCurrentIndex((prev) => (prev + 1) % mediaItems.length);
+                }
+              }}
+              onError={() => {
+                if (isPlaying) {
+                  setTimeout(() => {
+                    setCurrentIndex((prev) => (prev + 1) % mediaItems.length);
+                  }, 1500);
                 }
               }}
             />

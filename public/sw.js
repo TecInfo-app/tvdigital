@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'fastplayer-v1';
+const CACHE_NAME = 'fastplayer-v2';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html'
+  './',
+  './index.html'
 ];
 
 self.addEventListener('install', (event) => {

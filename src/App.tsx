@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, SyntheticEvent } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
   collection, 
@@ -16,6 +16,7 @@ import {
 import { auth, db, handleFirestoreError, OperationType, cleanUndefined, getApiUrl } from './firebase';
 import { safeLocalStorage } from './utils/safeStorage';
 import { clientSideScrape } from './utils/scraper';
+import { sanitizeMediaUrl, isVideoMedia, getCachedMediaUrl } from './utils/mediaUtils';
 
 import DashboardView from './components/DashboardView';
 import PlayersView from './components/PlayersView';
@@ -145,40 +146,6 @@ const compressImageFile = (file: File, maxWidth = 1920, maxHeight = 1080): Promi
     };
     reader.readAsDataURL(file);
   });
-};
-
-// Local Cache Storage helper for Offline Media
-const getCachedMediaUrl = async (url: string): Promise<string> => {
-  if (!url || !url.startsWith('http')) {
-    return url;
-  }
-  try {
-    const cache = await caches.open('fastplayer-media-cache');
-    const cachedResponse = await cache.match(url);
-    if (cachedResponse) {
-      const blob = await cachedResponse.blob();
-      return URL.createObjectURL(blob);
-    }
-    
-    // Attempt standard fetch to store in cache
-    const response = await fetch(url);
-    if (response.ok) {
-      await cache.put(url, response.clone());
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
-    }
-  } catch (error) {
-    console.warn("Media caching notice (CORS or offline fallback):", error);
-    // If standard CORS fetch fails, try an opaque fetch to still cache it
-    try {
-      const cache = await caches.open('fastplayer-media-cache');
-      const opaqueResponse = await fetch(url, { mode: 'no-cors' });
-      await cache.put(url, opaqueResponse);
-    } catch (err) {
-      console.warn("Failed opaque pre-caching:", err);
-    }
-  }
-  return url;
 };
 
 export default function App() {
@@ -318,18 +285,32 @@ export default function App() {
       setResolvedMediaUrl('');
       return;
     }
-    const originalUrl = currentMedia.content || currentMedia.url || '';
-    setResolvedMediaUrl(originalUrl); // immediate fallback
-    
+    const rawUrl = currentMedia.content || currentMedia.url || '';
+    const cleanUrl = sanitizeMediaUrl(rawUrl);
+    setResolvedMediaUrl(cleanUrl); // immediate fallback
+
+    // Videos stream directly via native HTTP Range requests (never convert to blob to prevent net::ERR_REQUEST_RANGE_NOT_SATISFIABLE)
+    if (isVideoMedia(currentMedia.type, cleanUrl)) {
+      return;
+    }
+
     let active = true;
-    getCachedMediaUrl(originalUrl).then(cachedUrl => {
-      if (active) {
+    let createdBlobUrl: string | null = null;
+
+    getCachedMediaUrl(cleanUrl).then(cachedUrl => {
+      if (active && cachedUrl) {
+        if (cachedUrl.startsWith('blob:')) {
+          createdBlobUrl = cachedUrl;
+        }
         setResolvedMediaUrl(cachedUrl);
       }
     });
-    
+
     return () => {
       active = false;
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl);
+      }
     };
   }, [currentMedia]);
 
@@ -636,7 +617,7 @@ export default function App() {
       alert("Link Inválido");
       return;
     }
-    const converted = dropIn.replace('dl=0', 'raw=1');
+    const converted = sanitizeMediaUrl(dropIn);
     setDropOutLink(converted);
     setShowDropOut(true);
     showToast("Convertido!");
@@ -1118,10 +1099,36 @@ export default function App() {
     };
   }, [screen, activePlaylist, playIdx]);
 
+  const videoErrorTimeoutRef = useRef<any>(null);
+
   const handleVideoEnded = () => {
     if (screen === 'player') {
       setPlayIdx(prev => (prev + 1) % activePlaylist.length);
     }
+  };
+
+  const handleVideoError = (e: SyntheticEvent<HTMLVideoElement, Event>) => {
+    const target = e.currentTarget;
+    console.warn("Erro na reprodução de vídeo para mídia:", currentMedia?.name, target.src);
+    const directUrl = sanitizeMediaUrl(currentMedia?.content || currentMedia?.url || '');
+
+    // If it failed on a blob URL, immediately recover by pointing to direct sanitized URL
+    if (target.src.startsWith('blob:') && directUrl && !directUrl.startsWith('blob:')) {
+      console.log("Recuperando vídeo do erro de blob para URL direta:", directUrl);
+      target.src = directUrl;
+      target.play().catch(() => {});
+      return;
+    }
+
+    // Debounce error skip by 1.5s to prevent runaway looping on persistent network/codec errors
+    if (videoErrorTimeoutRef.current) {
+      clearTimeout(videoErrorTimeoutRef.current);
+    }
+    videoErrorTimeoutRef.current = setTimeout(() => {
+      if (screen === 'player') {
+        setPlayIdx(prev => (prev + 1) % activePlaylist.length);
+      }
+    }, 1500);
   };
 
   const handleLogout = async () => {
@@ -1907,20 +1914,20 @@ export default function App() {
         <div id="player" style={{ background: '#000', position: 'fixed', top: 0, left: 0, zIndex: 9999, height: '100vh', width: '100vw' }}>
           <div id="displayArea" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {currentMedia ? (() => {
-              const contentStr = currentMedia.content || currentMedia.url || '';
-              const isVideo = currentMedia.type?.includes('video') || contentStr.startsWith('data:video/') || /\.(mp4|webm|mkv|mov)(\?.*)?$/i.test(contentStr);
+              const contentStr = sanitizeMediaUrl(currentMedia.content || currentMedia.url || '');
+              const isVideo = isVideoMedia(currentMedia.type, contentStr);
               const isImage = currentMedia.type?.includes('img') || currentMedia.type === 'image' || contentStr.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif|svg|bmp)(\?.*)?$/i.test(contentStr);
 
               if (isVideo) {
                 return (
                   <video 
                     key={currentMedia.id + '-' + playIdx}
-                    src={resolvedMediaUrl || contentStr}
+                    src={contentStr}
                     autoPlay
                     muted
                     playsInline
                     onEnded={handleVideoEnded}
-                    onError={handleVideoEnded}
+                    onError={handleVideoError}
                     style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
                   />
                 );

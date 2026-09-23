@@ -39,18 +39,34 @@ function getFallbackThumbnail(index: number): string {
  * Falls back gracefully to multiple proxies with low timeouts to guarantee uptime and speed.
  */
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
+  if (typeof AbortController !== 'undefined') {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return response;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  } else {
+    // Fallback for older browsers (e.g. Chrome < 66 on older TV Boxes)
+    return new Promise((resolve, reject) => {
+      const id = setTimeout(() => {
+        reject(new Error("Timeout"));
+      }, timeoutMs);
+      fetch(url, options).then(res => {
+        clearTimeout(id);
+        resolve(res);
+      }).catch(err => {
+        clearTimeout(id);
+        reject(err);
+      });
     });
-    clearTimeout(id);
-    return response;
-  } catch (err) {
-    clearTimeout(id);
-    throw err;
   }
 }
 

@@ -139,6 +139,10 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { purgeCorruptedMediaCache } from './utils/mediaUtils.ts';
+
+// Clean up any 0-byte corrupt media cache items from previous sessions
+purgeCorruptedMediaCache();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -146,15 +150,21 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// Register Service Worker for offline resilience
+// Register Service Worker for offline resilience (with support for GitHub Pages / subpaths)
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((reg) => {
-        console.log('Service Worker registrado com sucesso:', reg.scope);
-      })
-      .catch((err) => {
-        console.warn('Falha ao registrar Service Worker:', err);
-      });
+    try {
+      const swUrl = new URL('sw.js', window.location.href).href;
+      navigator.serviceWorker.register(swUrl)
+        .then((reg) => {
+          console.log('Service Worker registrado com sucesso:', reg.scope);
+        })
+        .catch((err) => {
+          console.warn('Falha ao registrar Service Worker (tentando caminho relativo):', err);
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        });
+    } catch (e) {
+      console.warn('Service Worker registration fallback error:', e);
+    }
   });
 }
