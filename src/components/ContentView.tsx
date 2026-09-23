@@ -28,6 +28,7 @@ import {
 import React, { useState, useRef, useEffect } from 'react';
 import { MediaItem } from '../types';
 import WidgetRenderer from './WidgetRenderer';
+import { sanitizeMediaUrl } from '../utils/mediaUtils';
 import { getApiUrl } from '../firebase';
 import { clientSideScrape } from '../utils/scraper';
 
@@ -329,20 +330,7 @@ export default function ContentView({
         setUploadError('Por favor, insira a URL do link.');
         return;
       }
-      let finalUrl = linkUrl.trim();
-      if (finalUrl.includes('dropbox.com')) {
-        finalUrl = finalUrl
-          .replace(/([a-zA-Z0-9-]+\.)?dropbox\.com/, 'dl.dropboxusercontent.com')
-          .replace('?dl=0', '')
-          .replace('?dl=1', '');
-        if (!finalUrl.includes('raw=1')) {
-          if (finalUrl.includes('?')) {
-            finalUrl += '&raw=1';
-          } else {
-            finalUrl += '?raw=1';
-          }
-        }
-      }
+      let finalUrl = sanitizeMediaUrl(linkUrl.trim());
       itemUrl = finalUrl;
       fileType = linkType;
     }
@@ -399,22 +387,10 @@ export default function ContentView({
     setConvertedUrl('');
 
     setTimeout(() => {
-      // Logic: convert "https://www.dropbox.com/s/xxxxx/file.mp4?dl=0" to direct "https://dl.dropboxusercontent.com/s/xxxxx/file.mp4"
-      let directLink = dropboxUrl.trim();
-      
-      if (directLink.includes('dropbox.com')) {
-        directLink = directLink
-          .replace('www.dropbox.com', 'dl.dropboxusercontent.com')
-          .replace('?dl=0', '')
-          .replace('?dl=1', '');
-      } else {
-        // Fallback or general URL mockup
-        directLink = `https://dl.dropboxusercontent.com/s/mocked_file_hash/source_asset.mp4`;
-      }
-
+      let directLink = sanitizeMediaUrl(dropboxUrl.trim());
       setConvertedUrl(directLink);
       setIsConverting(false);
-    }, 1000);
+    }, 500);
   };
 
   const copyToClipboard = () => {

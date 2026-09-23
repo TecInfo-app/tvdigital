@@ -972,26 +972,32 @@ export default function App() {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [basePlaylist, playlists]);
 
-  // Pre-cache all playlist media items in the background
+  // Pre-cache playlist images in the background (skip videos as they stream natively via HTTP Range requests)
   useEffect(() => {
     if (!activePlaylist || activePlaylist.length === 0) return;
     activePlaylist.forEach(item => {
-      const src = item.content || item.url || '';
-      if (src && src.startsWith('http')) {
+      const rawSrc = item.content || item.url || '';
+      if (!rawSrc || !rawSrc.startsWith('http')) return;
+
+      const cleanSrc = sanitizeMediaUrl(rawSrc);
+
+      // Never background-fetch videos via fetch() - videos stream directly via <video> tag
+      if (isVideoMedia(item.type, cleanSrc)) return;
+
+      if (typeof window !== 'undefined' && 'caches' in window) {
         caches.open('fastplayer-media-cache').then(cache => {
-          cache.match(src).then(match => {
+          cache.match(cleanSrc).then(match => {
             if (!match) {
-              fetch(src, { mode: 'cors' }).then(res => {
-                if (res.ok) cache.put(src, res);
+              fetch(cleanSrc, { mode: 'cors' }).then(res => {
+                if (res && res.ok) {
+                  cache.put(cleanSrc, res);
+                }
               }).catch(() => {
-                // If cors fails, fetch as opaque response
-                fetch(src, { mode: 'no-cors' }).then(opaqueRes => {
-                  cache.put(src, opaqueRes).catch(() => {});
-                }).catch(() => {});
+                // Silently ignore CORS restrictions on external image hosts
               });
             }
-          });
-        });
+          }).catch(() => {});
+        }).catch(() => {});
       }
     });
   }, [activePlaylist]);
