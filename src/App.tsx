@@ -152,11 +152,36 @@ const compressImageFile = (file: File, maxWidth = 1920, maxHeight = 1080): Promi
 export default function App() {
   // Navigation screen mode: 'menu' | 'config' | 'report' | 'players' | 'playlists' | 'schedules' | 'analytics' | 'dashboard' | 'player'
   const [screen, setScreen] = useState<string>('menu');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(() => {
+    try {
+      const saved = safeLocalStorage.getItem('tv_box_guest_user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
   const [authLoading, setAuthLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+
+  const isMockDemoItem = (item: { id?: string; name?: string }) => {
+    if (!item) return false;
+    return item.id === 'media-1' || item.id === 'media-2' || item.id === 'media-3' || (typeof item.name === 'string' && item.name.includes('Summer_Tech_Sale'));
+  };
+
+  // Dual sync helper: sends playlist directly to backend Express storage (data/playlist.json)
+  const postPlaylistToBackend = async (items: MediaItem[]) => {
+    try {
+      const clean = items.filter(i => !isMockDemoItem(i));
+      await fetch('/api/playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: clean })
+      });
+    } catch (err) {
+      console.warn("Notice: could not post to /api/playlist:", err);
+    }
+  };
 
   // Core system states
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(() => {
@@ -403,6 +428,57 @@ export default function App() {
     testConnection();
   }, []);
 
+  // Manual / Auto sync helper with backend Express storage
+  const syncWithBackendApi = async (isManual = false) => {
+    try {
+      if (isManual) setSyncStatus('syncing');
+      // Read any local media first
+      const local = safeLocalStorage.getItem('local_media_items');
+      let localParsed: MediaItem[] = [];
+      if (local) {
+        try {
+          localParsed = JSON.parse(local).filter((i: any) => !isMockDemoItem(i));
+        } catch {}
+      }
+
+      const res = await fetch('/api/playlist');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.items)) {
+          const serverItems = data.items.filter((i: any) => !isMockDemoItem(i));
+          if (serverItems.length > 0) {
+            setFirestorePlaylist(serverItems);
+            setMediaItems(serverItems);
+            safeLocalStorage.setItem('local_media_items', JSON.stringify(serverItems));
+            setLoadingData(false);
+            setSyncStatus('success');
+            setLastSyncTime(new Date().toLocaleTimeString());
+            if (isManual) showToast(`Sincronizado! ${serverItems.length} mídias carregadas.`);
+            return;
+          } else if (localParsed.length > 0) {
+            // Push local items to server storage so TV Box can read them
+            postPlaylistToBackend(localParsed);
+          }
+        }
+      }
+      if (isManual) {
+        setSyncStatus('idle');
+        showToast("Sincronização concluída.");
+      }
+    } catch (e) {
+      console.warn("Notice: backend playlist sync error:", e);
+      if (isManual) {
+        setSyncStatus('error');
+        showToast("Erro ao conectar com servidor.");
+      }
+    }
+  };
+
+  // Top-level startup sync: fetches from server storage immediately on boot
+  useEffect(() => {
+    syncWithBackendApi(false);
+  }, []);
+
   // Firebase auth & data synchronization
   useEffect(() => {
     let unsubSnap: (() => void) | null = null;
@@ -465,7 +541,7 @@ export default function App() {
                 playlistName: data.playlistName || 'Geral'
               } as MediaItem;
             })
-            .filter(i => !i.id?.startsWith('media-') && !i.name?.includes('Summer_Tech_Sale'));
+            .filter(i => !isMockDemoItem(i));
 
           // Prioritize items for this user or items without a specific userId (legacy format)
           const userItems = allDocs.filter(i => !i.userId || i.userId === uid);
@@ -476,6 +552,7 @@ export default function App() {
             setFirestorePlaylist(items);
             setMediaItems(items);
             safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
+            postPlaylistToBackend(items);
             setLoadingData(false);
           }
           setSyncStatus('success');
@@ -499,7 +576,7 @@ export default function App() {
 
             if (localMedia) {
               const parsed = JSON.parse(localMedia);
-              const cleaned = Array.isArray(parsed) ? parsed.filter(i => !i.id?.startsWith('media-') && !i.name?.includes('Summer_Tech_Sale')) : [];
+              const cleaned = Array.isArray(parsed) ? parsed.filter(i => !isMockDemoItem(i)) : [];
               if (cleaned.length > 0) {
                 setMediaItems(cleaned);
                 setFirestorePlaylist(cleaned);
@@ -527,7 +604,7 @@ export default function App() {
           const items: MediaItem[] = [];
           mediaSnap.forEach(doc => {
             const data = doc.data();
-            if (doc.id !== 'media-1' && doc.id !== 'media-2' && doc.id !== 'media-3' && !data.name?.includes('Summer_Tech_Sale')) {
+            if (!isMockDemoItem({ id: doc.id, ...data })) {
               items.push({ id: doc.id, ...data } as MediaItem);
             }
           });
@@ -538,6 +615,7 @@ export default function App() {
             setMediaItems(uniqueItems);
             setFirestorePlaylist(uniqueItems);
             safeLocalStorage.setItem('local_media_items', JSON.stringify(uniqueItems));
+            postPlaylistToBackend(uniqueItems);
           }
 
           const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
@@ -1143,7 +1221,13 @@ export default function App() {
     });
   }, [activePlaylist]);
 
-  const startPlayer = () => {
+  const startPlayer = async () => {
+    // If base playlist is empty, try one quick sync from server first!
+    if (basePlaylist.length === 0) {
+      showToast("Buscando mídias no servidor...");
+      await syncWithBackendApi(false);
+    }
+
     // 1. If currently syncing from server and base playlist is empty
     if ((loadingData || syncStatus === 'syncing') && basePlaylist.length === 0) {
       showToast("Aguarde: sincronizando mídias com o servidor...");
@@ -1152,7 +1236,7 @@ export default function App() {
 
     // 2. If base playlist is completely empty
     if (!basePlaylist.length) {
-      alert("A playlist está vazia. Adicione ao menos uma mídia em '⚙️ Playlist & Mídias' antes de iniciar a exibição.");
+      alert("A playlist está vazia. Cadastre ao menos uma mídia em '⚙️ Playlist & Mídias' ou clique em '🔄 Sincronizar Mídias' se já cadastrou no computador.");
       return;
     }
 
@@ -1165,6 +1249,7 @@ export default function App() {
           setFirestorePlaylist(unpausedList);
           setMediaItems(unpausedList);
           safeLocalStorage.setItem('local_media_items', JSON.stringify(unpausedList));
+          postPlaylistToBackend(unpausedList);
           unpausedList.forEach(item => {
             if (item.id && !item.id.startsWith('media-')) {
               updateDoc(doc(db, "playlist", item.id), { paused: false }).catch(() => {});
@@ -1387,7 +1472,42 @@ export default function App() {
           {/* Main Dark Card (#0f172a) */}
           <div style={{ background: '#0f172a', color: 'white', padding: '25px', borderRadius: '16px', textAlign: 'center', marginBottom: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
             <h1 style={{ marginBottom: '5px', fontSize: '28px', fontWeight: 800 }}>Painel Cloud ⚡</h1>
-            <p style={{ fontSize: '12px', opacity: 0.7, marginBottom: '20px' }}>{user.email}</p>
+            <p style={{ fontSize: '13px', opacity: 0.85, marginBottom: '15px' }}>
+              <span>{user?.email || 'Receptor FastPlayer'}</span>
+              <span style={{ margin: '0 8px', opacity: 0.5 }}>•</span>
+              <span style={{ color: basePlaylist.length > 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>
+                {basePlaylist.length} {basePlaylist.length === 1 ? 'mídia carregada' : 'mídias carregadas'}
+              </span>
+            </p>
+
+            {basePlaylist.length === 0 && (
+              <div style={{ background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '12px', padding: '14px', marginBottom: '16px', textAlign: 'left' }}>
+                <p style={{ margin: '0 0 6px 0', color: '#fbbf24', fontWeight: 'bold', fontSize: '13px' }}>
+                  📺 TV Box: Nenhuma mídia carregada no aparelho
+                </p>
+                <p style={{ margin: '0 0 12px 0', color: '#cbd5e1', fontSize: '12px', lineHeight: '1.4' }}>
+                  Se você adicionou as mídias pelo computador ou celular, clique no botão abaixo para baixar a lista diretamente do servidor para este TV Box.
+                </p>
+                <button
+                  onClick={() => syncWithBackendApi(true)}
+                  style={{
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  🔄 Puxar Mídias do Servidor Agora
+                </button>
+              </div>
+            )}
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button 
@@ -1508,14 +1628,23 @@ export default function App() {
             ⬅ Menu Principal
           </button>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
             <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#334155' }}>Playlist & Mídias</h2>
-            <button 
-              onClick={() => { resetForm(); setIsMediaModalOpen(true); }}
-              style={{ background: '#3b82f6', color: 'white', padding: '12px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}
-            >
-              + Nova Mídia
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button 
+                onClick={() => syncWithBackendApi(true)}
+                title="Puxa todas as mídias salvas no servidor"
+                style={{ background: '#0284c7', color: 'white', padding: '11px 16px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                🔄 Sincronizar ({basePlaylist.length})
+              </button>
+              <button 
+                onClick={() => { resetForm(); setIsMediaModalOpen(true); }}
+                style={{ background: '#3b82f6', color: 'white', padding: '12px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                + Nova Mídia
+              </button>
+            </div>
           </div>
 
           {/* Media List grouped by playlist */}

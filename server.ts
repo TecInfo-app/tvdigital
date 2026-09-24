@@ -5,6 +5,7 @@
 
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import * as cheerio from "cheerio";
 
@@ -279,6 +280,48 @@ async function startServer() {
   // API Route: Healthcheck
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Persistent server-side playlist storage (guarantees TV Box receives playlist items instantly)
+  const PLAYLIST_FILE = path.resolve(process.cwd(), "data", "playlist.json");
+
+  function loadPlaylistFromDisk(): any[] {
+    try {
+      if (fs.existsSync(PLAYLIST_FILE)) {
+        const data = fs.readFileSync(PLAYLIST_FILE, "utf-8");
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (err: any) {
+      console.error("[Playlist API] Error reading playlist file:", err.message);
+    }
+    return [];
+  }
+
+  function savePlaylistToDisk(items: any[]) {
+    try {
+      const dir = path.dirname(PLAYLIST_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(PLAYLIST_FILE, JSON.stringify(items, null, 2), "utf-8");
+    } catch (err: any) {
+      console.error("[Playlist API] Error saving playlist file:", err.message);
+    }
+  }
+
+  app.get("/api/playlist", (req, res) => {
+    const items = loadPlaylistFromDisk();
+    res.json({ status: "ok", items });
+  });
+
+  app.post("/api/playlist", (req, res) => {
+    const { items } = req.body;
+    if (Array.isArray(items)) {
+      savePlaylistToDisk(items);
+      return res.json({ status: "ok", count: items.length });
+    }
+    return res.status(400).json({ error: "Parâmetro 'items' deve ser uma lista (array)." });
   });
 
   // Dev server and production file assets delivery

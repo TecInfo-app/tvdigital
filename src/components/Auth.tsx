@@ -119,6 +119,25 @@ export default function Auth({ onSuccess }: AuthProps) {
               </>
             )}
           </button>
+
+          <div className="relative flex items-center justify-center my-1">
+            <div className="border-t border-slate-800 w-full" />
+            <span className="bg-black px-2 text-[10px] text-slate-500 uppercase tracking-widest">ou</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.setItem('tv_box_guest_user', JSON.stringify({ email: 'iranildo.jobs@gmail.com', uid: 'tvbox-receiver' }));
+              } catch (_) {}
+              onSuccess();
+            }}
+            className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 font-bold text-sm py-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Tv className="w-4 h-4 text-emerald-400" />
+            <span>📺 Conectar Modo TV Box (Entrada Direta)</span>
+          </button>
         </form>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 
 // Configuration provided by the user
 const firebaseConfig = {
@@ -12,10 +12,12 @@ const firebaseConfig = {
   appId: "1:359742862381:web:894ce6ad0d3ae3abecf4a4"
 };
 
-// Initialize Firebase
+// Initialize Firebase with fallback long-polling for Android TV Box WebViews
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth();
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+});
+export const auth = getAuth(app);
 
 // Standard operation types for the required Firestore error handling
 export enum OperationType {
