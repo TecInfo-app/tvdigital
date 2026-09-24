@@ -203,8 +203,14 @@ export default function App() {
   const [propPlaylistName, setPropPlaylistName] = useState('Geral');
   const [isCreatingNewPlaylist, setIsCreatingNewPlaylist] = useState(false);
   const [propPaused, setPropPaused] = useState(false);
-  const [collapsedPlaylists, setCollapsedPlaylists] = useState({});
-  const [activePlaylistNames, setActivePlaylistNames] = useState({ 'Geral': true });
+  const [collapsedPlaylists, setCollapsedPlaylists] = useState<Record<string, boolean>>({});
+  const [activePlaylistNames, setActivePlaylistNames] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = safeLocalStorage.getItem('active_playlist_names');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { 'Geral': true };
+  });
 
   const [propName, setPropName] = useState('');
   const [propDuration, setPropDuration] = useState<number | ''>('');
@@ -447,9 +453,9 @@ export default function App() {
         });
 
         // Monitor Firestore "playlist" collection directly (HTML structure compatibility)
-        const qPlaylist = query(collection(db, "playlist"), where("userId", "==", uid));
+        const qPlaylist = collection(db, "playlist");
         unsubSnap = onSnapshot(qPlaylist, (snap) => {
-          const items: MediaItem[] = snap.docs
+          const allDocs = snap.docs
             .map(d => {
               const data = d.data();
               return { 
@@ -459,10 +465,19 @@ export default function App() {
                 playlistName: data.playlistName || 'Geral'
               } as MediaItem;
             })
-            .sort((a, b) => (a.order || 0) - (b.order || 0));
-          setFirestorePlaylist(items);
-          setMediaItems(items);
-          safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
+            .filter(i => !i.id?.startsWith('media-') && !i.name?.includes('Summer_Tech_Sale'));
+
+          // Prioritize items for this user or items without a specific userId (legacy format)
+          const userItems = allDocs.filter(i => !i.userId || i.userId === uid);
+          const items = userItems.length > 0 ? userItems : allDocs;
+          items.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+          if (items.length > 0) {
+            setFirestorePlaylist(items);
+            setMediaItems(items);
+            safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
+            setLoadingData(false);
+          }
           setSyncStatus('success');
           setLastSyncTime(new Date().toLocaleTimeString());
         }, (err) => {
@@ -485,62 +500,62 @@ export default function App() {
             if (localMedia) {
               const parsed = JSON.parse(localMedia);
               const cleaned = Array.isArray(parsed) ? parsed.filter(i => !i.id?.startsWith('media-') && !i.name?.includes('Summer_Tech_Sale')) : [];
-              setMediaItems(cleaned);
-            } else {
-              setMediaItems([]);
+              if (cleaned.length > 0) {
+                setMediaItems(cleaned);
+                setFirestorePlaylist(cleaned);
+              }
             }
             setPlayers(localPlayers ? JSON.parse(localPlayers) : INITIAL_PLAYERS);
             setPlaylists(localPlaylists ? JSON.parse(localPlaylists) : INITIAL_PLAYLISTS);
             setLogs(localLogs ? JSON.parse(localLogs) : INITIAL_LOGS);
           } catch (e) {
-            setMediaItems([]);
             setPlayers(INITIAL_PLAYERS);
             setPlaylists(INITIAL_PLAYLISTS);
             setLogs(INITIAL_LOGS);
           }
           setLoadingData(false);
           setSyncStatus('idle');
-        }, 2500);
+        }, 4000);
 
         try {
           const mediaRef = collection(db, 'users', uid, 'media_items');
           const mediaSnap = await getDocs(mediaRef);
           
-          if (!didTimeOutOrResolve) {
-            clearTimeout(timeoutId);
-            didTimeOutOrResolve = true;
+          clearTimeout(timeoutId);
+          didTimeOutOrResolve = true;
 
-            const items: MediaItem[] = [];
-            mediaSnap.forEach(doc => {
-              const data = doc.data();
-              if (doc.id !== 'media-1' && doc.id !== 'media-2' && doc.id !== 'media-3' && !data.name?.includes('Summer_Tech_Sale')) {
-                items.push({ id: doc.id, ...data } as MediaItem);
-              }
-            });
-            
-            // Deduplicate items based on id to prevent React key errors
-            const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());
-            if (uniqueItems.length > 0) {
-              setMediaItems(uniqueItems);
+          const items: MediaItem[] = [];
+          mediaSnap.forEach(doc => {
+            const data = doc.data();
+            if (doc.id !== 'media-1' && doc.id !== 'media-2' && doc.id !== 'media-3' && !data.name?.includes('Summer_Tech_Sale')) {
+              items.push({ id: doc.id, ...data } as MediaItem);
             }
-
-            const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
-            const loadedPlayers: Player[] = [];
-            playersSnap.forEach(doc => loadedPlayers.push({ id: doc.id, ...doc.data() } as Player));
-            setPlayers(loadedPlayers.length > 0 ? loadedPlayers : INITIAL_PLAYERS);
-
-            const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
-            const loadedPlaylists: Playlist[] = [];
-            playlistsSnap.forEach(doc => loadedPlaylists.push({ id: doc.id, ...doc.data() } as Playlist));
-            setPlaylists(loadedPlaylists.length > 0 ? loadedPlaylists : INITIAL_PLAYLISTS);
-
-            const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
-            const loadedLogs: LogEntry[] = [];
-            logsSnap.forEach(doc => loadedLogs.push({ id: doc.id, ...doc.data() } as LogEntry));
-            setLogs(loadedLogs);
-            setSyncStatus('success');
-            setLastSyncTime(new Date().toLocaleTimeString());
+          });
+          
+          // Deduplicate items based on id to prevent React key errors
+          const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());
+          if (uniqueItems.length > 0) {
+            setMediaItems(uniqueItems);
+            setFirestorePlaylist(uniqueItems);
+            safeLocalStorage.setItem('local_media_items', JSON.stringify(uniqueItems));
           }
+
+          const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
+          const loadedPlayers: Player[] = [];
+          playersSnap.forEach(doc => loadedPlayers.push({ id: doc.id, ...doc.data() } as Player));
+          setPlayers(loadedPlayers.length > 0 ? loadedPlayers : INITIAL_PLAYERS);
+
+          const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
+          const loadedPlaylists: Playlist[] = [];
+          playlistsSnap.forEach(doc => loadedPlaylists.push({ id: doc.id, ...doc.data() } as Playlist));
+          setPlaylists(loadedPlaylists.length > 0 ? loadedPlaylists : INITIAL_PLAYLISTS);
+
+          const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
+          const loadedLogs: LogEntry[] = [];
+          logsSnap.forEach(doc => loadedLogs.push({ id: doc.id, ...doc.data() } as LogEntry));
+          setLogs(loadedLogs);
+          setSyncStatus('success');
+          setLastSyncTime(new Date().toLocaleTimeString());
         } catch (error) {
           if (!didTimeOutOrResolve) {
             clearTimeout(timeoutId);
@@ -1059,7 +1074,11 @@ export default function App() {
   }, [firestorePlaylist, mediaItems]);
 
   const activePlaylist = useMemo(() => {
-    return basePlaylist.filter(item => activePlaylistNames[item.playlistName || 'Geral'] && !item.paused);
+    return basePlaylist.filter(item => {
+      const pName = item.playlistName || 'Geral';
+      const isPlaylistActive = activePlaylistNames[pName] !== false;
+      return isPlaylistActive && !item.paused;
+    });
   }, [basePlaylist, activePlaylistNames]);
 
   // Auto-start player on TV Box or if URL contains ?player=true or #player
@@ -1125,10 +1144,43 @@ export default function App() {
   }, [activePlaylist]);
 
   const startPlayer = () => {
-    if (!activePlaylist.length) {
-      alert("Playlist Vazia!");
+    // 1. If currently syncing from server and base playlist is empty
+    if ((loadingData || syncStatus === 'syncing') && basePlaylist.length === 0) {
+      showToast("Aguarde: sincronizando mídias com o servidor...");
       return;
     }
+
+    // 2. If base playlist is completely empty
+    if (!basePlaylist.length) {
+      alert("A playlist está vazia. Adicione ao menos uma mídia em '⚙️ Playlist & Mídias' antes de iniciar a exibição.");
+      return;
+    }
+
+    // 3. If base playlist has items but active playlist is empty (e.g. all paused or unchecked)
+    if (!activePlaylist.length) {
+      const allPaused = basePlaylist.every(i => i.paused);
+      if (allPaused) {
+        if (confirm("Todas as mídias da playlist estão marcadas como pausadas. Deseja despausar todas e iniciar a reprodução agora?")) {
+          const unpausedList = basePlaylist.map(i => ({ ...i, paused: false }));
+          setFirestorePlaylist(unpausedList);
+          setMediaItems(unpausedList);
+          safeLocalStorage.setItem('local_media_items', JSON.stringify(unpausedList));
+          unpausedList.forEach(item => {
+            if (item.id && !item.id.startsWith('media-')) {
+              updateDoc(doc(db, "playlist", item.id), { paused: false }).catch(() => {});
+            }
+          });
+          setScreen('player');
+          setPlayIdx(0);
+          return;
+        }
+        return;
+      }
+
+      alert("Nenhuma das mídias selecionadas está ativa. Verifique se as playlists estão marcadas em '⚙️ Playlist & Mídias'.");
+      return;
+    }
+
     setScreen('player');
     setPlayIdx(0);
   };
@@ -1160,22 +1212,16 @@ export default function App() {
 
     const validIdx = findNextValidIndex(playIdx);
 
-    if (validIdx === -1) {
-      // No media is scheduled/available to play
-      if (playerTimerRef.current) clearTimeout(playerTimerRef.current);
-      currentIndexRef.current = null;
-      currentMediaIdRef.current = null;
-      setCurrentMedia(null);
+    // Fallback: if scheduling excluded all items (common when TV Box system clock is desynchronized or at epoch 1970), fallback to first available item
+    const targetIdx = validIdx !== -1 ? validIdx : 0;
+
+    // If the target index is different from playIdx, transition to it
+    if (targetIdx !== playIdx) {
+      setPlayIdx(targetIdx);
       return;
     }
 
-    // If the valid index is different from playIdx, transition to it
-    if (validIdx !== playIdx) {
-      setPlayIdx(validIdx);
-      return;
-    }
-
-    const item = activePlaylist[validIdx];
+    const item = activePlaylist[targetIdx];
     const isVideo = item.type?.includes('video');
     const isWidget = item.type === 'widget';
     const durationMs = (item.duration || (isWidget ? 40 : 10)) * 1000;
@@ -1496,8 +1542,15 @@ export default function App() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <input 
                         type="checkbox" 
-                        checked={activePlaylistNames[pName] || false}
-                        onChange={(e) => setActivePlaylistNames(prev => ({ ...prev, [pName]: e.target.checked }))}
+                        checked={activePlaylistNames[pName] !== false}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          setActivePlaylistNames(prev => {
+                            const updated = { ...prev, [pName]: val };
+                            safeLocalStorage.setItem('active_playlist_names', JSON.stringify(updated));
+                            return updated;
+                          });
+                        }}
                         style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
                       />
                       <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#334155' }}>
