@@ -2319,17 +2319,34 @@ export default function App() {
               const isImage = currentMedia.type?.includes('img') || currentMedia.type === 'image' || contentStr.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif|svg|bmp)(\?.*)?$/i.test(contentStr);
 
               if (isVideo) {
+                const nextItem = activePlaylist[(playIdx + 1) % activePlaylist.length];
+                const nextSrc = nextItem ? sanitizeMediaUrl(nextItem.content || nextItem.url || '') : '';
+                const isNextVideo = nextItem && isVideoMedia(nextItem.type, nextSrc);
+
                 return (
-                  <video 
-                    key={currentMedia.id + '-' + playIdx}
-                    src={contentStr}
-                    autoPlay
-                    muted
-                    playsInline
-                    onEnded={handleVideoEnded}
-                    onError={handleVideoError}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
-                  />
+                  <>
+                    <video 
+                      key={currentMedia.id + '-' + playIdx}
+                      src={contentStr}
+                      autoPlay
+                      muted
+                      playsInline
+                      preload="auto"
+                      onEnded={handleVideoEnded}
+                      onError={handleVideoError}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', border: 'none', background: '#000' }}
+                    />
+                    {isNextVideo && nextSrc && nextSrc !== contentStr && (
+                      <video 
+                        key={'preload-' + nextItem.id}
+                        src={nextSrc}
+                        preload="auto"
+                        muted
+                        playsInline
+                        style={{ display: 'none', width: 0, height: 0, position: 'absolute' }}
+                      />
+                    )}
+                  </>
                 );
               }
               if (isImage) {
