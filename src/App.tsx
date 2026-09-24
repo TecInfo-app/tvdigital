@@ -169,8 +169,15 @@ export default function App() {
     return item.id === 'media-1' || item.id === 'media-2' || item.id === 'media-3' || (typeof item.name === 'string' && item.name.includes('Summer_Tech_Sale'));
   };
 
-  // Dual sync helper: sends playlist directly to backend Express storage (data/playlist.json)
+  // Check if we are hosted on a static-only environment (e.g. GitHub Pages)
+  const isStaticHost = typeof window !== 'undefined' && (
+    window.location.hostname.endsWith('github.io') ||
+    window.location.protocol === 'file:'
+  );
+
+  // Dual sync helper: sends playlist directly to backend Express storage if available
   const postPlaylistToBackend = async (items: MediaItem[]) => {
+    if (isStaticHost) return; // GitHub Pages is static-only, uses Firestore directly
     try {
       const clean = items.filter(i => !isMockDemoItem(i));
       await fetch('/api/playlist', {
@@ -179,7 +186,7 @@ export default function App() {
         body: JSON.stringify({ items: clean })
       });
     } catch (err) {
-      console.warn("Notice: could not post to /api/playlist:", err);
+      // Backend not running in this environment, ignorable
     }
   };
 
@@ -428,60 +435,124 @@ export default function App() {
     testConnection();
   }, []);
 
-  // Manual / Auto sync helper with backend Express storage
+  // Manual / Auto sync helper (works both on local Express backend and static hosts like GitHub Pages)
   const syncWithBackendApi = async (isManual = false) => {
     try {
       if (isManual) setSyncStatus('syncing');
-      // Read any local media first
-      const local = safeLocalStorage.getItem('local_media_items');
-      let localParsed: MediaItem[] = [];
-      if (local) {
-        try {
-          localParsed = JSON.parse(local).filter((i: any) => !isMockDemoItem(i));
-        } catch {}
-      }
 
-      const res = await fetch('/api/playlist');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.items)) {
-          const serverItems = data.items.filter((i: any) => !isMockDemoItem(i));
-          if (serverItems.length > 0) {
-            setFirestorePlaylist(serverItems);
-            setMediaItems(serverItems);
-            safeLocalStorage.setItem('local_media_items', JSON.stringify(serverItems));
+      // 1. If hosted on static site (e.g. GitHub Pages), sync directly via Firestore
+      if (isStaticHost) {
+        try {
+          const snap = await getDocs(collection(db, "playlist"));
+          const items = snap.docs
+            .map(d => ({
+              id: d.id,
+              ...d.data(),
+              paused: d.data().paused === true,
+              playlistName: d.data().playlistName || 'Geral'
+            } as MediaItem))
+            .filter(i => !isMockDemoItem(i))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+          if (items.length > 0) {
+            setFirestorePlaylist(items);
+            setMediaItems(items);
+            safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
             setLoadingData(false);
             setSyncStatus('success');
             setLastSyncTime(new Date().toLocaleTimeString());
-            if (isManual) showToast(`Sincronizado! ${serverItems.length} mídias carregadas.`);
+            if (isManual) showToast(`Sincronizado via Nuvem! ${items.length} mídias carregadas.`);
             return;
-          } else if (localParsed.length > 0) {
-            // Push local items to server storage so TV Box can read them
-            postPlaylistToBackend(localParsed);
           }
+        } catch (e) {
+          console.warn("Firestore direct read fallback notice:", e);
+        }
+      } else {
+        // 2. Local Node/Express server sync
+        try {
+          const res = await fetch('/api/playlist');
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.items)) {
+              const serverItems = data.items.filter((i: any) => !isMockDemoItem(i));
+              if (serverItems.length > 0) {
+                setFirestorePlaylist(serverItems);
+                setMediaItems(serverItems);
+                safeLocalStorage.setItem('local_media_items', JSON.stringify(serverItems));
+                setLoadingData(false);
+                setSyncStatus('success');
+                setLastSyncTime(new Date().toLocaleTimeString());
+                if (isManual) showToast(`Sincronizado! ${serverItems.length} mídias carregadas.`);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          // Backend API not reachable, handled gracefully
         }
       }
+
       if (isManual) {
         setSyncStatus('idle');
         showToast("Sincronização concluída.");
       }
     } catch (e) {
-      console.warn("Notice: backend playlist sync error:", e);
       if (isManual) {
         setSyncStatus('error');
-        showToast("Erro ao conectar com servidor.");
+        showToast("Erro ao sincronizar.");
       }
     }
   };
 
-  // Top-level startup sync: fetches from server storage immediately on boot
+  // Unconditional Global Firestore Playlist Realtime Listener (Runs on PC, TV Box, Mobile, and GitHub Pages)
+  useEffect(() => {
+    setLoadingData(true);
+    const qPlaylist = collection(db, "playlist");
+    const unsubscribePlaylist = onSnapshot(
+      qPlaylist,
+      (snap) => {
+        const allDocs = snap.docs
+          .map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              paused: data.paused === true,
+              playlistName: data.playlistName || 'Geral'
+            } as MediaItem;
+          })
+          .filter(i => !isMockDemoItem(i));
+
+        allDocs.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        if (allDocs.length > 0) {
+          setFirestorePlaylist(allDocs);
+          setMediaItems(allDocs);
+          safeLocalStorage.setItem('local_media_items', JSON.stringify(allDocs));
+          postPlaylistToBackend(allDocs);
+        }
+        setLoadingData(false);
+        setSyncStatus('success');
+        setLastSyncTime(new Date().toLocaleTimeString());
+      },
+      (err) => {
+        console.warn("Firestore playlist monitor notice:", err);
+        setLoadingData(false);
+      }
+    );
+
+    return () => {
+      unsubscribePlaylist();
+    };
+  }, []);
+
+  // Top-level startup sync
   useEffect(() => {
     syncWithBackendApi(false);
   }, []);
 
   // Firebase auth & data synchronization
   useEffect(() => {
-    let unsubSnap: (() => void) | null = null;
     let unsubLogs: (() => void) | null = null;
 
     // Safety timeout: ensure authLoading is never stuck true for more than 2 seconds
@@ -498,11 +569,6 @@ export default function App() {
         setLoadingData(true);
         setSyncStatus('syncing');
         const uid = currentUser.uid;
-
-        if (unsubSnap) {
-          unsubSnap();
-          unsubSnap = null;
-        }
 
         if (unsubLogs) {
           unsubLogs();
@@ -526,40 +592,6 @@ export default function App() {
           setLogs(loadedLogs);
         }, (err) => {
           console.warn("Logs monitor notice:", err);
-        });
-
-        // Monitor Firestore "playlist" collection directly (HTML structure compatibility)
-        const qPlaylist = collection(db, "playlist");
-        unsubSnap = onSnapshot(qPlaylist, (snap) => {
-          const allDocs = snap.docs
-            .map(d => {
-              const data = d.data();
-              return { 
-                id: d.id, 
-                ...data,
-                paused: data.paused === true,
-                playlistName: data.playlistName || 'Geral'
-              } as MediaItem;
-            })
-            .filter(i => !isMockDemoItem(i));
-
-          // Prioritize items for this user or items without a specific userId (legacy format)
-          const userItems = allDocs.filter(i => !i.userId || i.userId === uid);
-          const items = userItems.length > 0 ? userItems : allDocs;
-          items.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-          if (items.length > 0) {
-            setFirestorePlaylist(items);
-            setMediaItems(items);
-            safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
-            postPlaylistToBackend(items);
-            setLoadingData(false);
-          }
-          setSyncStatus('success');
-          setLastSyncTime(new Date().toLocaleTimeString());
-        }, (err) => {
-          console.warn("Playlist monitor notice:", err);
-          setSyncStatus('error');
         });
 
         // Initialize user data collections with fallback
@@ -644,19 +676,22 @@ export default function App() {
           setLoadingData(false);
         }
       } else {
-        if (unsubSnap) {
-          unsubSnap();
-          unsubSnap = null;
-        }
         if (unsubLogs) {
           unsubLogs();
           unsubLogs = null;
         }
-        setMediaItems([]);
-        setPlayers([]);
-        setPlaylists([]);
-        setLogs([]);
-        setFirestorePlaylist([]);
+        // When unauthenticated or in TV Box guest mode, preserve existing media from local storage and firestore
+        try {
+          const localMedia = safeLocalStorage.getItem('local_media_items');
+          if (localMedia) {
+            const parsed = JSON.parse(localMedia);
+            const cleaned = Array.isArray(parsed) ? parsed.filter(i => !isMockDemoItem(i)) : [];
+            if (cleaned.length > 0) {
+              setMediaItems(cleaned);
+              setFirestorePlaylist(cleaned);
+            }
+          }
+        } catch {}
         setLoadingData(false);
       }
     });
@@ -664,7 +699,6 @@ export default function App() {
     return () => {
       clearTimeout(authTimeout);
       unsubscribe();
-      if (unsubSnap) unsubSnap();
       if (unsubLogs) unsubLogs();
     };
   }, []);

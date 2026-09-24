@@ -15,14 +15,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Top-level playlist collection used by HTML structure
+    // Top-level playlist collection used by Digital Signage and TV Box players
     match /playlist/{itemId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // Top-level logs collection
     match /logs/{logId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // Match users and their subcollections
