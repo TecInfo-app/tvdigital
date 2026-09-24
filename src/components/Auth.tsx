@@ -8,7 +8,7 @@ interface AuthProps {
 }
 
 export default function Auth({ onSuccess }: AuthProps) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('iranildo.jobs@gmail.com');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

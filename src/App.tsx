@@ -1608,6 +1608,20 @@ export default function App() {
               </button>
 
               <button 
+                onClick={async () => {
+                  safeLocalStorage.removeItem('local_media_items');
+                  safeLocalStorage.removeItem('active_playlist_names');
+                  setMediaItems([]);
+                  setFirestorePlaylist([]);
+                  showToast("🧹 Cache limpo. Baixando playlist da nuvem...");
+                  await syncWithBackendApi(true);
+                }}
+                style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#0284c7', color: 'white', fontSize: '14px' }}
+              >
+                🧹 Limpar Cache & Nuvem
+              </button>
+
+              <button 
                 onClick={handleLogout}
                 style={{ padding: '14px 20px', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, width: '100%', background: '#ef4444', color: 'white', fontSize: '14px' }}
               >
