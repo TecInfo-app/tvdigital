@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
   collection, 
   addDoc, 
+  setDoc,
   onSnapshot, 
   doc, 
   deleteDoc, 
@@ -158,13 +159,27 @@ export default function App() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   // Core system states
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>(() => {
+    try {
+      const saved = safeLocalStorage.getItem('local_media_items');
+      return saved ? JSON.parse(saved) : INITIAL_MEDIA_ITEMS;
+    } catch {
+      return INITIAL_MEDIA_ITEMS;
+    }
+  });
   const [players, setPlayers] = useState<Player[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   // Playlist state synced directly with Firestore "playlist" collection (like the HTML code)
-  const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>([]);
+  const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>(() => {
+    try {
+      const saved = safeLocalStorage.getItem('local_media_items');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
 
@@ -423,9 +438,19 @@ export default function App() {
         const qPlaylist = query(collection(db, "playlist"), where("userId", "==", uid));
         unsubSnap = onSnapshot(qPlaylist, (snap) => {
           const items: MediaItem[] = snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as MediaItem))
+            .map(d => {
+              const data = d.data();
+              return { 
+                id: d.id, 
+                ...data,
+                paused: data.paused === true,
+                playlistName: data.playlistName || 'Geral'
+              } as MediaItem;
+            })
             .sort((a, b) => (a.order || 0) - (b.order || 0));
           setFirestorePlaylist(items);
+          setMediaItems(items);
+          safeLocalStorage.setItem('local_media_items', JSON.stringify(items));
           setSyncStatus('success');
           setLastSyncTime(new Date().toLocaleTimeString());
         }, (err) => {
@@ -561,6 +586,7 @@ export default function App() {
   const handleSetMediaItems = async (update: MediaItem[] | ((prev: MediaItem[]) => MediaItem[])) => {
     const nextItems = typeof update === 'function' ? update(mediaItems) : update;
     setMediaItems(nextItems); 
+    safeLocalStorage.setItem('local_media_items', JSON.stringify(nextItems));
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     try {
@@ -671,6 +697,8 @@ export default function App() {
       end: endDate || '',
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       userId: currentUid,
+      playlistName: propPlaylistName || 'Geral',
+      paused: Boolean(propPaused),
       updatedAt: new Date().toISOString(),
       ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
@@ -689,6 +717,11 @@ export default function App() {
       setSyncStatus('syncing');
       if (editingId) {
         await updateDoc(doc(db, "playlist", editingId), cleanUndefined(rawData));
+        if (user?.uid) {
+          try {
+            await updateDoc(doc(db, "users", user.uid, "media_items", editingId), cleanUndefined(rawData));
+          } catch (e) {}
+        }
       } else {
         const nextOrder = firestorePlaylist.length > 0 ? Math.max(...firestorePlaylist.map(i => i.order || 0)) + 1 : 1;
         const docRef = await addDoc(collection(db, "playlist"), cleanUndefined({
@@ -696,6 +729,14 @@ export default function App() {
           order: nextOrder
         }));
         newDocId = docRef.id;
+        if (user?.uid) {
+          try {
+            await setDoc(doc(db, "users", user.uid, "media_items", newDocId), cleanUndefined({
+              ...rawData,
+              order: nextOrder
+            }));
+          } catch (e) {}
+        }
       }
       setSyncStatus('success');
       setLastSyncTime(new Date().toLocaleTimeString());
@@ -721,7 +762,7 @@ export default function App() {
       days: selectedDays || [0, 1, 2, 3, 4, 5, 6],
       order: firestorePlaylist.length + 1,
       playlistName: propPlaylistName || 'Geral',
-      paused: propPaused,
+      paused: Boolean(propPaused),
       ...(inputType === 'rss' && rssConfiguredItems.length > 0 ? { items: rssConfiguredItems } : {})
     };
 
@@ -743,11 +784,19 @@ export default function App() {
     
     // Immediate UI update
     if (!editingId) {
-      setFirestorePlaylist(prev => [...prev.filter(i => i.id !== newMediaItem.id), newMediaItem]);
+      setFirestorePlaylist(prev => {
+        const next = [...prev.filter(i => i.id !== newMediaItem.id), newMediaItem];
+        safeLocalStorage.setItem('local_media_items', JSON.stringify(next));
+        return next;
+      });
       handleSetMediaItems([...mediaItems.filter(i => i.id !== newMediaItem.id), newMediaItem]);
       showToast("Mídia salva com sucesso!");
     } else {
-      setFirestorePlaylist(prev => prev.map(m => m.id === editingId ? { ...m, ...newMediaItem } : m));
+      setFirestorePlaylist(prev => {
+        const next = prev.map(m => m.id === editingId ? { ...m, ...newMediaItem } : m);
+        safeLocalStorage.setItem('local_media_items', JSON.stringify(next));
+        return next;
+      });
       handleSetMediaItems(mediaItems.map(m => m.id === editingId ? { ...m, ...newMediaItem } : m));
       showToast("Alterações salvas com sucesso!");
     }
@@ -777,7 +826,7 @@ export default function App() {
     setIsCreatingNewPlaylist(false);
     setPropName(item.name);
     setPropPlaylistName(item.playlistName || 'Geral');
-    setPropPaused(!!item.paused);
+    setPropPaused(Boolean(item.paused));
     setPropDuration(item.duration !== undefined && item.duration !== null ? item.duration : "");
     
     let mappedType = item.type || 'upload_img';
@@ -803,10 +852,73 @@ export default function App() {
     setIsMediaModalOpen(true);
   };
 
+  const togglePauseMedia = async (id: string, e?: SyntheticEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
+    let targetName = "";
+    let willBePaused = false;
+
+    // 1. Update local states immediately for zero-latency UI toggle
+    setFirestorePlaylist(prev => {
+      const target = prev.find(m => m.id === id);
+      if (target) {
+        targetName = target.name;
+        willBePaused = !target.paused;
+      }
+      const next = prev.map(m => m.id === id ? { ...m, paused: !m.paused } : m);
+      safeLocalStorage.setItem('local_media_items', JSON.stringify(next));
+      return next;
+    });
+
+    setMediaItems(prev => {
+      if (!targetName) {
+        const target = prev.find(m => m.id === id);
+        if (target) {
+          targetName = target.name;
+          willBePaused = !target.paused;
+        }
+      }
+      const next = prev.map(m => m.id === id ? { ...m, paused: !m.paused } : m);
+      return next;
+    });
+
+    showToast(willBePaused ? `⏸️ "${targetName || 'Mídia'}" pausada` : `▶️ "${targetName || 'Mídia'}" despausada`);
+
+    // 2. Persist to Firestore documents
+    try {
+      setSyncStatus('syncing');
+      await updateDoc(doc(db, "playlist", id), { 
+        paused: willBePaused,
+        updatedAt: new Date().toISOString()
+      });
+      if (user?.uid) {
+        try {
+          await updateDoc(doc(db, "users", user.uid, "media_items", id), { 
+            paused: willBePaused,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+      setSyncStatus('success');
+      setLastSyncTime(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.warn("[togglePauseMedia] Firestore sync notice:", err);
+    }
+  };
+
   const deleteItem = async (id: string) => {
     if (confirm("Deseja excluir esta mídia?")) {
       // Immediate local state update for zero latency
-      setFirestorePlaylist(prev => prev.filter(m => m.id !== id));
+      setFirestorePlaylist(prev => {
+        const next = prev.filter(m => m.id !== id);
+        safeLocalStorage.setItem('local_media_items', JSON.stringify(next));
+        return next;
+      });
       setMediaItems(prev => prev.filter(m => m.id !== id));
 
       if (editingId === id) {
@@ -850,6 +962,7 @@ export default function App() {
     // Update local React states immediately for instant UI re-ordering
     setFirestorePlaylist(reorderedList);
     setMediaItems(reorderedList);
+    safeLocalStorage.setItem('local_media_items', JSON.stringify(reorderedList));
 
     // Sync order changes to Firestore asynchronously
     try {
@@ -881,6 +994,7 @@ export default function App() {
 
     setFirestorePlaylist(reorderedList);
     setMediaItems(reorderedList);
+    safeLocalStorage.setItem('local_media_items', JSON.stringify(reorderedList));
 
     try {
       const updates = reorderedList.map(async (m) => {
@@ -1459,7 +1573,27 @@ export default function App() {
                                 {desc}
                               </div>
                             </div>
-                            <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <button 
+                                onClick={(e) => togglePauseMedia(item.id, e)}
+                                title={item.paused ? "Retomar exibição desta mídia" : "Pausar exibição desta mídia"}
+                                style={{ 
+                                  background: item.paused ? '#fef3c7' : '#f8fafc', 
+                                  color: item.paused ? '#b45309' : '#475569', 
+                                  border: item.paused ? '1px solid #fcd34d' : '1px solid #cbd5e1', 
+                                  borderRadius: '6px', 
+                                  padding: '4px 8px', 
+                                  cursor: 'pointer', 
+                                  fontSize: '12px', 
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                {item.paused ? '▶️ Despausar' : '⏸️ Pausar'}
+                              </button>
                               <button 
                                 onClick={() => editItem(item)}
                                 style={{ color: '#f59e0b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600 }}
@@ -1468,7 +1602,7 @@ export default function App() {
                               </button>
                               <button 
                                 onClick={() => deleteItem(item.id)}
-                                style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '10px', fontSize: '18px', fontWeight: 'bold' }}
+                                style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '4px', fontSize: '18px', fontWeight: 'bold' }}
                               >
                                 &times;
                               </button>
