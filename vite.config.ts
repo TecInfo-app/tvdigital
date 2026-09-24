@@ -15,6 +15,10 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      target: ['chrome60', 'edge79', 'firefox62', 'safari11', 'es2017'],
+      cssTarget: 'chrome61',
+    },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

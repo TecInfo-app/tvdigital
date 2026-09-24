@@ -135,18 +135,92 @@ try {
   console.warn('[Polyfill Error] Failed to initialize older browser support polyfills:', e);
 }
 
-import {StrictMode} from 'react';
+import React, { StrictMode, ErrorInfo, ReactNode } from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { purgeCorruptedMediaCache } from './utils/mediaUtils.ts';
+import { purgeCorruptedMediaCache, purgeMockMediaData } from './utils/mediaUtils.ts';
 
-// Clean up any 0-byte corrupt media cache items from previous sessions
+// Clean up any 0-byte corrupt media cache and mock items from previous sessions
 purgeCorruptedMediaCache();
+purgeMockMediaData();
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  errorText: string;
+}
+
+// Error Boundary with pure black background for TV Box stability
+class SafeErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public override state: ErrorBoundaryState = { hasError: false, errorText: '' };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, errorText: error?.message || 'Erro inesperado' };
+  }
+
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[FastPlayer TV ErrorBoundary]:', error, errorInfo);
+  }
+
+  override render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          backgroundColor: '#000000',
+          color: '#ffffff',
+          minHeight: '100vh',
+          width: '100vw',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+          textAlign: 'center',
+          fontFamily: 'Inter, sans-serif'
+        }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>📺</div>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '0.5px' }}>
+            FAST<span style={{ color: '#3b82f6' }}>PLAYER</span>
+          </h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '400px', margin: '0 0 20px 0' }}>
+            O sistema encontrou uma falha temporária. Clique no botão abaixo para reiniciar o reprodutor.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '12px 24px',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(37,99,235,0.4)'
+            }}
+          >
+            🔄 Recarregar Sistema
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <SafeErrorBoundary>
+      <App />
+    </SafeErrorBoundary>
   </StrictMode>,
 );
 

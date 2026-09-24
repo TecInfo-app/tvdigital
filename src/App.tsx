@@ -162,9 +162,15 @@ export default function App() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(() => {
     try {
       const saved = safeLocalStorage.getItem('local_media_items');
-      return saved ? JSON.parse(saved) : INITIAL_MEDIA_ITEMS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(i => i.id !== 'media-1' && i.id !== 'media-2' && i.id !== 'media-3' && !i.name?.includes('Summer_Tech_Sale'));
+        }
+      }
+      return [];
     } catch {
-      return INITIAL_MEDIA_ITEMS;
+      return [];
     }
   });
   const [players, setPlayers] = useState<Player[]>([]);
@@ -175,7 +181,13 @@ export default function App() {
   const [firestorePlaylist, setFirestorePlaylist] = useState<MediaItem[]>(() => {
     try {
       const saved = safeLocalStorage.getItem('local_media_items');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(i => i.id !== 'media-1' && i.id !== 'media-2' && i.id !== 'media-3' && !i.name?.includes('Summer_Tech_Sale'));
+        }
+      }
+      return [];
     } catch {
       return [];
     }
@@ -470,18 +482,24 @@ export default function App() {
             const localPlaylists = safeLocalStorage.getItem('local_playlists');
             const localLogs = safeLocalStorage.getItem('local_logs');
 
-            setMediaItems(localMedia ? JSON.parse(localMedia) : INITIAL_MEDIA_ITEMS);
+            if (localMedia) {
+              const parsed = JSON.parse(localMedia);
+              const cleaned = Array.isArray(parsed) ? parsed.filter(i => !i.id?.startsWith('media-') && !i.name?.includes('Summer_Tech_Sale')) : [];
+              setMediaItems(cleaned);
+            } else {
+              setMediaItems([]);
+            }
             setPlayers(localPlayers ? JSON.parse(localPlayers) : INITIAL_PLAYERS);
             setPlaylists(localPlaylists ? JSON.parse(localPlaylists) : INITIAL_PLAYLISTS);
             setLogs(localLogs ? JSON.parse(localLogs) : INITIAL_LOGS);
           } catch (e) {
-            setMediaItems(INITIAL_MEDIA_ITEMS);
+            setMediaItems([]);
             setPlayers(INITIAL_PLAYERS);
             setPlaylists(INITIAL_PLAYLISTS);
             setLogs(INITIAL_LOGS);
           }
           setLoadingData(false);
-          setSyncStatus('error');
+          setSyncStatus('idle');
         }, 2500);
 
         try {
@@ -492,58 +510,34 @@ export default function App() {
             clearTimeout(timeoutId);
             didTimeOutOrResolve = true;
 
-            if (mediaSnap.empty) {
-              const batch = writeBatch(db);
-              
-              INITIAL_MEDIA_ITEMS.forEach((item) => {
-                const docRef = doc(db, 'users', uid, 'media_items', item.id);
-                batch.set(docRef, cleanUndefined({ ...item, userId: uid }));
-              });
-              
-              INITIAL_PLAYERS.forEach((player) => {
-                const docRef = doc(db, 'users', uid, 'players', player.id);
-                batch.set(docRef, cleanUndefined({ ...player, userId: uid }));
-              });
-              
-              INITIAL_PLAYLISTS.forEach((pl) => {
-                const docRef = doc(db, 'users', uid, 'playlists', pl.id);
-                batch.set(docRef, cleanUndefined({ ...pl, userId: uid }));
-              });
-              
-              INITIAL_LOGS.forEach((log) => {
-                const docRef = doc(db, 'users', uid, 'logs', log.id);
-                batch.set(docRef, cleanUndefined({ ...log, userId: uid }));
-              });
-              
-              await batch.commit();
-              
-              setMediaItems(INITIAL_MEDIA_ITEMS);
-              setPlayers(INITIAL_PLAYERS);
-              setPlaylists(INITIAL_PLAYLISTS);
-              setLogs(INITIAL_LOGS);
-            } else {
-              const items: MediaItem[] = [];
-              mediaSnap.forEach(doc => items.push({ id: doc.id, ...doc.data() } as MediaItem));
-              
-              // Deduplicate items based on id to prevent React key errors
-              const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());
+            const items: MediaItem[] = [];
+            mediaSnap.forEach(doc => {
+              const data = doc.data();
+              if (doc.id !== 'media-1' && doc.id !== 'media-2' && doc.id !== 'media-3' && !data.name?.includes('Summer_Tech_Sale')) {
+                items.push({ id: doc.id, ...data } as MediaItem);
+              }
+            });
+            
+            // Deduplicate items based on id to prevent React key errors
+            const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());
+            if (uniqueItems.length > 0) {
               setMediaItems(uniqueItems);
-
-              const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
-              const loadedPlayers: Player[] = [];
-              playersSnap.forEach(doc => loadedPlayers.push({ id: doc.id, ...doc.data() } as Player));
-              setPlayers(loadedPlayers);
-
-              const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
-              const loadedPlaylists: Playlist[] = [];
-              playlistsSnap.forEach(doc => loadedPlaylists.push({ id: doc.id, ...doc.data() } as Playlist));
-              setPlaylists(loadedPlaylists);
-
-              const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
-              const loadedLogs: LogEntry[] = [];
-              logsSnap.forEach(doc => loadedLogs.push({ id: doc.id, ...doc.data() } as LogEntry));
-              setLogs(loadedLogs);
             }
+
+            const playersSnap = await getDocs(collection(db, 'users', uid, 'players'));
+            const loadedPlayers: Player[] = [];
+            playersSnap.forEach(doc => loadedPlayers.push({ id: doc.id, ...doc.data() } as Player));
+            setPlayers(loadedPlayers.length > 0 ? loadedPlayers : INITIAL_PLAYERS);
+
+            const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
+            const loadedPlaylists: Playlist[] = [];
+            playlistsSnap.forEach(doc => loadedPlaylists.push({ id: doc.id, ...doc.data() } as Playlist));
+            setPlaylists(loadedPlaylists.length > 0 ? loadedPlaylists : INITIAL_PLAYLISTS);
+
+            const logsSnap = await getDocs(collection(db, 'users', uid, 'logs'));
+            const loadedLogs: LogEntry[] = [];
+            logsSnap.forEach(doc => loadedLogs.push({ id: doc.id, ...doc.data() } as LogEntry));
+            setLogs(loadedLogs);
             setSyncStatus('success');
             setLastSyncTime(new Date().toLocaleTimeString());
           }
@@ -1060,12 +1054,26 @@ export default function App() {
 
   // Player Loop Logic (like the HTML code)
   const basePlaylist = useMemo(() => {
-    return firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
+    const source = firestorePlaylist.length > 0 ? firestorePlaylist : mediaItems;
+    return source.filter(item => item.id !== 'media-1' && item.id !== 'media-2' && item.id !== 'media-3' && !item.name?.includes('Summer_Tech_Sale'));
   }, [firestorePlaylist, mediaItems]);
 
   const activePlaylist = useMemo(() => {
     return basePlaylist.filter(item => activePlaylistNames[item.playlistName || 'Geral'] && !item.paused);
   }, [basePlaylist, activePlaylistNames]);
+
+  // Auto-start player on TV Box or if URL contains ?player=true or #player
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const hasPlayerParam = params.get('player') === 'true' || params.get('player') === '1' || params.get('autoplay') === '1' || window.location.hash.includes('player');
+    
+    if (hasPlayerParam && screen !== 'player') {
+      setScreen('player');
+    } else if (isTvBoxMode && activePlaylist.length > 0 && screen === 'menu') {
+      setScreen('player');
+    }
+  }, [isTvBoxMode, activePlaylist.length, screen]);
 
   // Memoized unique playlist names present in the system
   const existingPlaylistNames = useMemo(() => {
@@ -1274,8 +1282,8 @@ export default function App() {
 
   if (authLoading || loadingData) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: '20px', textAlign: 'center' }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid #2563eb', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#000000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: '20px', textAlign: 'center' }}>
+        <div style={{ width: '40px', height: '40px', border: '4px solid #1e293b', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         <p style={{ marginTop: '15px', fontWeight: 'bold', fontSize: '14px', color: '#cbd5e1' }}>Carregando FastPlayer...</p>
         <button
           onClick={() => {
@@ -2051,7 +2059,43 @@ export default function App() {
 
       {/* FULLSCREEN PLAYER (#player from HTML code) */}
       {screen === 'player' && (
-        <div id="player" style={{ background: '#000', position: 'fixed', top: 0, left: 0, zIndex: 9999, height: '100vh', width: '100vw' }}>
+        <div 
+          id="player" 
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === 'Backspace') {
+              setScreen('menu');
+            }
+          }}
+          style={{ background: '#000', position: 'fixed', top: 0, left: 0, zIndex: 9999, height: '100vh', width: '100vw', outline: 'none' }}
+        >
+          {/* Subtle exit button for TV Box remote or mouse */}
+          <button
+            onClick={() => setScreen('menu')}
+            title="Voltar ao Painel (ESC)"
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              zIndex: 10001,
+              background: 'rgba(15, 23, 42, 0.7)',
+              color: '#cbd5e1',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              opacity: 0.25,
+              transition: 'opacity 0.2s',
+              backdropFilter: 'blur(4px)'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.25')}
+          >
+            ✕ Painel
+          </button>
+
           <div id="displayArea" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {currentMedia ? (() => {
               const contentStr = sanitizeMediaUrl(currentMedia.content || currentMedia.url || '');
@@ -2092,7 +2136,11 @@ export default function App() {
                 />
               );
             })() : (
-              <div style={{ color: 'white', fontWeight: 'bold' }}>Aguardando mídia...</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                <div style={{ width: '36px', height: '36px', border: '3px solid #1e293b', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '14px' }} />
+                <div style={{ color: '#f8fafc', fontWeight: 600, fontSize: '15px' }}>Sincronizando mídias do terminal...</div>
+                <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>Aguarde a reprodução iniciar</div>
+              </div>
             )}
           </div>
         </div>
@@ -2124,7 +2172,7 @@ export default function App() {
               </div>
 
               <div style={{ marginBottom: '15px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
-                <label style={{ display: 'flex', itemsCenter: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                   <input 
                     type="checkbox"
                     name="tvBoxMode"

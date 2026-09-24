@@ -78,7 +78,7 @@ export default function ContentView({
   // RSS Preview & Edit Modal states
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewItems, setPreviewItems] = useState<Array<{ title: string; description: string; thumbnail?: string; pubDate?: string }>>([
+  const [previewItems, setPreviewItems] = useState<Array<{ title: string; description: string; thumbnail?: string; pubDate?: string; showTitle?: boolean; showDescription?: boolean }>>([
     {
       title: 'Inauguração de Novo Cardápio com Cervejas Artesanais',
       description: 'Estabelecimento em Recife traz opções exclusivas harmonizadas com chopp gelado e petiscos tradicionais.',

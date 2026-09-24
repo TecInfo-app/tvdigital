@@ -116,3 +116,30 @@ export const purgeCorruptedMediaCache = async (): Promise<void> => {
     console.warn("[MediaCache] Purge notice:", err);
   }
 };
+
+/**
+ * Cleans up any mock media items lingering in local storage
+ */
+export const purgeMockMediaData = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem('local_media_items');
+    if (raw) {
+      const items = JSON.parse(raw);
+      if (Array.isArray(items)) {
+        const hasMock = items.some((i: any) => i.id === 'media-1' || i.id === 'media-2' || i.id === 'media-3' || (typeof i.name === 'string' && i.name.includes('Summer_Tech_Sale')));
+        if (hasMock) {
+          const filtered = items.filter((i: any) => i.id !== 'media-1' && i.id !== 'media-2' && i.id !== 'media-3' && !(typeof i.name === 'string' && i.name.includes('Summer_Tech_Sale')));
+          if (filtered.length > 0) {
+            localStorage.setItem('local_media_items', JSON.stringify(filtered));
+          } else {
+            localStorage.removeItem('local_media_items');
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[MediaCache] purgeMockMediaData notice:", err);
+  }
+};
+
